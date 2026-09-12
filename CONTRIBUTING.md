@@ -33,6 +33,6 @@ ctest --test-dir build --output-on-failure
 
 If you touch a formula, add a regression against a published or independently
 computed reference (Haug, Hull, or a high-resolution run of an existing
-engine). State the tolerance and why it is justified - 1e-12 for analytic
+engine). State the tolerance and why it is justified - 1 x 10^-12 for analytic
 identities, a few standard errors for Monte Carlo, the observed truncation
 order for trees.

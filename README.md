@@ -78,7 +78,7 @@ A closed-form price without a residual, a tree without a truncation check, and a
 Carlo estimate without a standard error are all unfinished numerical methods. `derivkit`
 makes the diagnostic part of the return type so it cannot be forgotten:
 
-- **Analytic identities** (put-call parity, round-trip implied vol) are tested to ~1e-12.
+- **Analytic identities** (put-call parity, round-trip implied vol) are tested to ~1 x 10^-12.
 - **Trees** expose \|P(N) − P(N/2)\| and can Richardson-extrapolate CRR’s O(1/N) term.
 - **Leisen-Reimer** is the high-order lattice: it matches Φ(d₁), Φ(d₂) so a European
   with a few hundred steps sits well inside a basis point of Black-Scholes.
@@ -105,12 +105,12 @@ Absolute error versus N (`./build/examples/convergence`):
 
 | N | CRR | Jarrow-Rudd | Leisen-Reimer | Trinomial |
 | ---: | ---: | ---: | ---: | ---: |
-| 51 | 3.4×10⁻² | 2.7×10⁻² | 1.3×10⁻⁴ | 3.9×10⁻² |
-| 101 | 1.7×10⁻² | 9.1×10⁻³ | 3.4×10⁻⁵ | 2.0×10⁻² |
-| 401 | 4.4×10⁻³ | 4.7×10⁻³ | 2.2×10⁻⁶ | 5.0×10⁻³ |
-| 801 | 2.2×10⁻³ | 2.0×10⁻³ | 5.5×10⁻⁷ | 2.5×10⁻³ |
+| 51 | 3.4 x 10^-2 | 2.7 x 10^-2 | 1.3 x 10^-4 | 3.9 x 10^-2 |
+| 101 | 1.7 x 10^-2 | 9.1 x 10^-3 | 3.4 x 10^-5 | 2.0 x 10^-2 |
+| 401 | 4.4 x 10^-3 | 4.7 x 10^-3 | 2.2 x 10^-6 | 5.0 x 10^-3 |
+| 801 | 2.2 x 10^-3 | 2.0 x 10^-3 | 5.5 x 10^-7 | 2.5 x 10^-3 |
 
-Leisen-Reimer is the high-order lattice: at 101 steps it is already inside 0.04 cents of Black-Scholes. CRR with Richardson on even N drops the 401-step error from ~4×10⁻³ to ~10⁻⁶.
+Leisen-Reimer is the high-order lattice: at 101 steps it is already inside 0.04 cents of Black-Scholes. CRR with Richardson on even N drops the 401-step error from ~4 x 10^-3 to ~1 x 10^-6.
 
 American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 
@@ -119,7 +119,7 @@ American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 | European Black-Scholes | 3.844308 |
 | CRR American, N = 801 | 4.486399 |
 | Kamrad-Ritchken American, N = 801 | 4.486245 |
-| Adaptive trinomial (tol 5×10⁻⁴) | 4.486403 |
+| Adaptive trinomial (tol 5 x 10^-4) | 4.486403 |
 
 Early-exercise premium ≈ **0.642**.
 
@@ -127,19 +127,19 @@ Variance reduction, 50,000 European paths, seed 42 (`./build/examples/variance_r
 
 | Method | Price | Std. err. | Variance ratio |
 | --- | ---: | ---: | ---: |
-| Crude | 10.544 | 6.6×10⁻² | 1.0 |
-| Antithetic | 10.463 | 3.3×10⁻² | 4.1 |
-| Control (S_T) | 10.459 | 2.5×10⁻² | 7.0 |
-| Antithetic + control | 10.459 | 8.8×10⁻³ | **57** |
+| Crude | 10.544 | 6.6 x 10^-2 | 1.0 |
+| Antithetic | 10.463 | 3.3 x 10^-2 | 4.1 |
+| Control (S_T) | 10.459 | 2.5 x 10^-2 | 7.0 |
+| Antithetic + control | 10.459 | 8.8 x 10^-3 | **57** |
 
 Arithmetic Asian, 50 fixings, 20,000 paths. Geometric closed form = 5.641058. The geometric-average control is the classical pairing and is worth three orders of magnitude in variance:
 
 | Method | Std. err. | Variance ratio |
 | --- | ---: | ---: |
-| Crude | 5.7×10⁻² | 1 |
-| Antithetic | 2.8×10⁻² | 4 |
-| Geometric control | 1.6×10⁻³ | 1,300 |
-| Antithetic + geo-control | 1.2×10⁻³ | **2,300** |
+| Crude | 5.7 x 10^-2 | 1 |
+| Antithetic | 2.8 x 10^-2 | 4 |
+| Geometric control | 1.6 x 10^-3 | 1,300 |
+| Antithetic + geo-control | 1.2 x 10^-3 | **2,300** |
 
 ## Project layout
 

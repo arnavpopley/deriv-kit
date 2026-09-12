@@ -51,13 +51,13 @@ are rejected rather than inverted.
 ## Binomial trees
 
 **Cox-Ross-Rubinstein.** \(u = e^{\sigma\sqrt{\Delta t}}\), \(d = 1/u\),
-risk-neutral \(p = (e^{(r-q)\Delta t}-d)/(u-d)\). Truncation is \(O(N^{-1})\)
+risk-neutral \(p = (e^{(r-q)\Delta t}-d)/(u-d)\). Truncation is O(N^-1)
 and oscillatory in \(N\).
 
 **Jarrow-Rudd.** Equal probability \(p = 1/2\), drift absorbed into \(u,d\).
 
 **Leisen-Reimer.** Odd \(N\), Peizer-Pratt inversion of \(d_1,d_2\) so the
-tree matches the Black-Scholes probabilities. Smooth \(O(N^{-2})\)
+tree matches the Black-Scholes probabilities. Smooth O(N^-2)
 convergence for Europeans.
 
 American exercise replaces continuation with \(\max(\text{exercise},
