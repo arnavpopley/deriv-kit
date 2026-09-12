@@ -15,4 +15,6 @@ First public release.
 - Richardson extrapolation and adaptive step doubling
 - Monte Carlo with exact GBM sampling, antithetic variates, and control variates
 - Arithmetic Asian Monte Carlo controlled by the geometric Asian
-- Adaptive Monte Carlo that grows the path count until a standard-error tolerance is met
+- Groww Trading API example: live NIFTY / BANKNIFTY / equity option chains priced
+  with Black–Scholes, Leisen–Reimer, and optional Monte Carlo, with a bundled
+  fixture when no API token is set

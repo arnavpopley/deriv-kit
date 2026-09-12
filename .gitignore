@@ -12,4 +12,5 @@ compile_commands.json
 *.so
 *.dylib
 .DS_Store
-CMakeUserPresets.json
+.env
+*.pem

@@ -23,8 +23,10 @@ and control variates.
 | Monte Carlo (exact GBM) | European, arithmetic Asian | sample standard error |
 | Antithetic + control variates | Europeans (control = S_T); Asians (control = geometric) | reduced standard error |
 | Adaptive drivers | trees double N; MC grows paths | user `abs_tol` / `stderr_tol` |
+| Groww option chain | live NIFTY / BANKNIFTY / stocks → derivkit prices | BS vs LTP, IV vs Groww IV |
 
-No third-party dependencies. Headers, a static library, CTest, examples, and GitHub Actions CI.
+The core library has no third-party dependencies. Headers, a static library, CTest,
+examples (including a Groww option-chain client), and GitHub Actions CI.
 
 ## Quick start
 
@@ -33,6 +35,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ./build/examples/vanilla_comparison
+./build/examples/groww_chain          # bundled NIFTY chain; live with GROWW_ACCESS_TOKEN
 ```
 
 A C++20 compiler is required (GCC 11+, Clang 14+, or MSVC 2022). If `c++` on your
@@ -144,9 +147,38 @@ Arithmetic Asian, 50 fixings, 20,000 paths. Geometric closed form = 5.641058. Th
 include/derivkit/   public headers
 src/                library implementation
 tests/              CTest binaries, no external test framework
-examples/           comparison, American put, VR study, convergence, implied vol
+examples/           comparison, American put, VR study, convergence, implied vol,
+                    Groww NIFTY chain
+examples/data/      bundled Groww-shaped NIFTY fixture
 docs/methods.md     formulas and references
 ```
+
+## Live NIFTY chain via Groww
+
+`examples/groww_chain` pulls an option chain from the [Groww Trading API](https://groww.in/trade-api/docs/curl/live-data)
+and prices every nearby strike with Black–Scholes and a Leisen–Reimer tree. It prints
+Groww's last traded price next to the model, and implied vol / delta next to Groww's
+own Greeks.
+
+```bash
+# Offline demo (no account) — bundled NIFTY fixture
+./build/examples/groww_chain
+
+# Live NIFTY, nearest expiry (token from Groww → Settings → Trading APIs)
+export GROWW_ACCESS_TOKEN=...
+./build/examples/groww_chain NIFTY
+
+# Other underlyings, specific expiry
+./build/examples/groww_chain BANKNIFTY --expiry 2026-09-29
+./build/examples/groww_chain RELIANCE --strikes 4 --mc
+```
+
+Copy `.env.example` and fill `GROWW_ACCESS_TOKEN`, or use `GROWW_API_KEY` +
+`GROWW_API_SECRET` / `GROWW_TOTP`. Live mode needs `curl` on `PATH`. Without
+credentials the example still runs against `examples/data/nifty_chain.json`.
+
+Columns: **LTP** is Groww's market, **BS** is Black–Scholes using Groww's IV,
+**LR** is the tree, **iv%** is derivkit's implied vol from LTP, **ivG%** is Groww.
 
 ## Install
 
