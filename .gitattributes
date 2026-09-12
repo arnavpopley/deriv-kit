@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.hpp text
+*.cpp text
+*.md text
+*.yml text

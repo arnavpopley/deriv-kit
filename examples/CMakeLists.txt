@@ -1,0 +1,10 @@
+add_executable(vanilla_comparison vanilla_comparison.cpp)
+add_executable(american_put american_put.cpp)
+add_executable(variance_reduction variance_reduction.cpp)
+add_executable(convergence convergence.cpp)
+add_executable(implied_vol implied_vol.cpp)
+
+foreach(example vanilla_comparison american_put variance_reduction convergence implied_vol)
+    target_link_libraries(${example} PRIVATE derivkit)
+    derivkit_warnings(${example})
+endforeach()

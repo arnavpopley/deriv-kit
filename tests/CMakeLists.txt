@@ -1,0 +1,15 @@
+add_library(derivkit_harness INTERFACE)
+target_include_directories(derivkit_harness INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+
+function(derivkit_test name)
+    add_executable(${name} ${name}.cpp)
+    target_link_libraries(${name} PRIVATE derivkit derivkit_harness)
+    derivkit_warnings(${name})
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+derivkit_test(test_math)
+derivkit_test(test_black_scholes)
+derivkit_test(test_implied_vol)
+derivkit_test(test_trees)
+derivkit_test(test_monte_carlo)
