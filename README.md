@@ -2,9 +2,9 @@
 
 C++20 toolkit for pricing derivative contracts with **explicit numerical error control**.
 
-The same discipline that makes a CR3BP integrator trustworthy — adaptive refinement, a
-computable error estimate, and tests that check orders of accuracy — is applied here to
-Black–Scholes analytics, binomial and trinomial trees, and Monte Carlo with antithetic
+The same discipline that makes a CR3BP integrator trustworthy - adaptive refinement, a
+computable error estimate, and tests that check orders of accuracy - is applied here to
+Black-Scholes analytics, binomial and trinomial trees, and Monte Carlo with antithetic
 and control variates.
 
 [![C++](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
@@ -15,11 +15,11 @@ and control variates.
 
 | Engine | What it prices | Error diagnostic |
 | --- | --- | --- |
-| Black–Scholes–Merton | European vanilla, geometric Asian, Greeks | a few ulps |
+| Black-Scholes-Merton | European vanilla, geometric Asian, Greeks | a few ulps |
 | Implied volatility | Newton + residual-controlled bisection | \|BS(σ) − market\| |
-| CRR / Jarrow–Rudd binomial | European and American vanilla | \|P(N) − P(N/2)\| |
-| Leisen–Reimer binomial | Smooth second-order European (American too) | successive difference |
-| Kamrad–Ritchken trinomial | European and American vanilla | successive difference |
+| CRR / Jarrow-Rudd binomial | European and American vanilla | \|P(N) − P(N/2)\| |
+| Leisen-Reimer binomial | Smooth second-order European (American too) | successive difference |
+| Kamrad-Ritchken trinomial | European and American vanilla | successive difference |
 | Monte Carlo (exact GBM) | European, arithmetic Asian | sample standard error |
 | Antithetic + control variates | Europeans (control = S_T); Asians (control = geometric) | reduced standard error |
 | Adaptive drivers | trees double N; MC grows paths | user `abs_tol` / `stderr_tol` |
@@ -80,8 +80,8 @@ makes the diagnostic part of the return type so it cannot be forgotten:
 
 - **Analytic identities** (put-call parity, round-trip implied vol) are tested to ~1e-12.
 - **Trees** expose \|P(N) − P(N/2)\| and can Richardson-extrapolate CRR’s O(1/N) term.
-- **Leisen–Reimer** is the high-order lattice: it matches Φ(d₁), Φ(d₂) so a European
-  with a few hundred steps sits well inside a basis point of Black–Scholes.
+- **Leisen-Reimer** is the high-order lattice: it matches Φ(d₁), Φ(d₂) so a European
+  with a few hundred steps sits well inside a basis point of Black-Scholes.
 - **Monte Carlo** uses Welford moments, exact GBM sampling (no Euler bias on vanillas),
   and optional antithetic / control variates. Adaptive sampling stops on standard error,
   not on a guessed path count.
@@ -90,7 +90,7 @@ The mapping from an orbital toolkit is intentional:
 
 | CR3BP-style integrator | derivkit |
 | --- | --- |
-| Adaptive Runge–Kutta step | Adaptive tree depth / MC path count |
+| Adaptive Runge-Kutta step | Adaptive tree depth / MC path count |
 | Local truncation error | \|P(N)−P(N/2)\| or MC standard error |
 | Event / root finding with residual | Implied vol Newton + bisection residual |
 | Conserved quantities | Put-call parity, model-free price bounds |
@@ -99,26 +99,26 @@ Formulas and references: [docs/methods.md](docs/methods.md).
 
 ## Example numbers
 
-European call, S = K = 100, r = 5%, σ = 20%, T = 1. Black–Scholes = **10.45058357**.
+European call, S = K = 100, r = 5%, σ = 20%, T = 1. Black-Scholes = **10.45058357**.
 
 Absolute error versus N (`./build/examples/convergence`):
 
-| N | CRR | Jarrow–Rudd | Leisen–Reimer | Trinomial |
+| N | CRR | Jarrow-Rudd | Leisen-Reimer | Trinomial |
 | ---: | ---: | ---: | ---: | ---: |
 | 51 | 3.4×10⁻² | 2.7×10⁻² | 1.3×10⁻⁴ | 3.9×10⁻² |
 | 101 | 1.7×10⁻² | 9.1×10⁻³ | 3.4×10⁻⁵ | 2.0×10⁻² |
 | 401 | 4.4×10⁻³ | 4.7×10⁻³ | 2.2×10⁻⁶ | 5.0×10⁻³ |
 | 801 | 2.2×10⁻³ | 2.0×10⁻³ | 5.5×10⁻⁷ | 2.5×10⁻³ |
 
-Leisen–Reimer is the high-order lattice: at 101 steps it is already inside 0.04 cents of Black–Scholes. CRR with Richardson on even N drops the 401-step error from ~4×10⁻³ to ~10⁻⁶.
+Leisen-Reimer is the high-order lattice: at 101 steps it is already inside 0.04 cents of Black-Scholes. CRR with Richardson on even N drops the 401-step error from ~4×10⁻³ to ~10⁻⁶.
 
 American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 
 | Method | Price |
 | --- | ---: |
-| European Black–Scholes | 3.844308 |
+| European Black-Scholes | 3.844308 |
 | CRR American, N = 801 | 4.486399 |
-| Kamrad–Ritchken American, N = 801 | 4.486245 |
+| Kamrad-Ritchken American, N = 801 | 4.486245 |
 | Adaptive trinomial (tol 5×10⁻⁴) | 4.486403 |
 
 Early-exercise premium ≈ **0.642**.
@@ -156,12 +156,12 @@ docs/methods.md     formulas and references
 ## Live NIFTY chain via Groww
 
 `examples/groww_chain` pulls an option chain from the [Groww Trading API](https://groww.in/trade-api/docs/curl/live-data)
-and prices every nearby strike with Black–Scholes and a Leisen–Reimer tree. It prints
+and prices every nearby strike with Black-Scholes and a Leisen-Reimer tree. It prints
 Groww's last traded price next to the model, and implied vol / delta next to Groww's
 own Greeks.
 
 ```bash
-# Offline demo (no account) — bundled NIFTY fixture
+# Offline demo (no account) - bundled NIFTY fixture
 ./build/examples/groww_chain
 
 # Live NIFTY, nearest expiry (token from Groww → Settings → Trading APIs)
@@ -177,7 +177,7 @@ Copy `.env.example` and fill `GROWW_ACCESS_TOKEN`, or use `GROWW_API_KEY` +
 `GROWW_API_SECRET` / `GROWW_TOTP`. Live mode needs `curl` on `PATH`. Without
 credentials the example still runs against `examples/data/nifty_chain.json`.
 
-Columns: **LTP** is Groww's market, **BS** is Black–Scholes using Groww's IV,
+Columns: **LTP** is Groww's market, **BS** is Black-Scholes using Groww's IV,
 **LR** is the tree, **iv%** is derivkit's implied vol from LTP, **ivG%** is Groww.
 
 ## Install

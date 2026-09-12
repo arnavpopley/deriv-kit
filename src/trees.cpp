@@ -21,7 +21,7 @@ int odd_steps(int n) {
 }
 
 double peizer_pratt(double z, int n) {
-    // Improved Peizer–Pratt inversion (Haug / Leisen–Reimer).
+    // Improved Peizer-Pratt inversion (Haug / Leisen-Reimer).
     const double x = z / (static_cast<double>(n) + 1.0 / 3.0 + 0.1 / (n + 1.0));
     const double inner = 1.0 - std::exp(-x * x * (n + 1.0 / 6.0));
     const double mag = 0.5 * std::sqrt(std::max(inner, 0.0));

@@ -7,7 +7,7 @@ namespace derivkit {
 
 /// Reproducible normal generator used by every Monte Carlo path.
 ///
-/// Box–Muller on top of `std::mt19937_64`. One engine per pricer call; the
+/// Box-Muller on top of `std::mt19937_64`. One engine per pricer call; the
 /// library never shares mutable RNG state across threads.
 class NormalRng {
 public:

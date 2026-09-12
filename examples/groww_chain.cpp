@@ -86,7 +86,7 @@ Args parse_args(int argc, char** argv) {
     return a;
 }
 
-// Re-parse rate/div properly — keep a simple second pass in main.
+// Re-parse rate/div properly - keep a simple second pass in main.
 struct Overrides {
     std::optional<double> rate;
     std::optional<double> dividend;
@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        std::cout << "\nLTP = Groww last traded price.  BS uses Groww IV.  LR = Leisen–Reimer "
+        std::cout << "\nLTP = Groww last traded price.  BS uses Groww IV.  LR = Leisen-Reimer "
                      "N=101.\n"
                   << "iv% is derivkit implied vol from LTP; ivG% is Groww's published IV.\n"
                   << "mispx% = (BS − LTP) / LTP.  Delta is per 1 point of spot.\n";

@@ -5,7 +5,7 @@ diagnostics each engine reports. The design is deliberately close to an
 adaptive ODE toolkit: a method is not finished until it can tell you how
 wrong it might be.
 
-## Black–Scholes–Merton
+## Black-Scholes-Merton
 
 Under geometric Brownian motion
 
@@ -50,14 +50,14 @@ are rejected rather than inverted.
 
 ## Binomial trees
 
-**Cox–Ross–Rubinstein.** \(u = e^{\sigma\sqrt{\Delta t}}\), \(d = 1/u\),
+**Cox-Ross-Rubinstein.** \(u = e^{\sigma\sqrt{\Delta t}}\), \(d = 1/u\),
 risk-neutral \(p = (e^{(r-q)\Delta t}-d)/(u-d)\). Truncation is \(O(N^{-1})\)
 and oscillatory in \(N\).
 
-**Jarrow–Rudd.** Equal probability \(p = 1/2\), drift absorbed into \(u,d\).
+**Jarrow-Rudd.** Equal probability \(p = 1/2\), drift absorbed into \(u,d\).
 
-**Leisen–Reimer.** Odd \(N\), Peizer–Pratt inversion of \(d_1,d_2\) so the
-tree matches the Black–Scholes probabilities. Smooth \(O(N^{-2})\)
+**Leisen-Reimer.** Odd \(N\), Peizer-Pratt inversion of \(d_1,d_2\) so the
+tree matches the Black-Scholes probabilities. Smooth \(O(N^{-2})\)
 convergence for Europeans.
 
 American exercise replaces continuation with \(\max(\text{exercise},
@@ -67,7 +67,7 @@ Error diagnostic: \(|P(N)-P(\lfloor N/2\rfloor)|\). Adaptive pricing doubles
 \(N\) until that gap is below a user tolerance (the analogue of an RK
 step-size controller). Richardson \(2P(2N)-P(N)\) is optional for CRR.
 
-## Trinomial tree (Kamrad–Ritchken)
+## Trinomial tree (Kamrad-Ritchken)
 
 Stretch \(\lambda = \sqrt{3}\),
 
@@ -107,7 +107,7 @@ For Europeans the control is the discounted terminal spot, whose mean
 sample.
 
 For arithmetic Asians the control is the geometric-average Asian, which is
-lognormal. The Kemna–Vorst formula implemented here uses \(n\) fixings at
+lognormal. The Kemna-Vorst formula implemented here uses \(n\) fixings at
 \(\Delta t, 2\Delta t, \ldots, T\):
 
 \[
@@ -117,13 +117,13 @@ lognormal. The Kemna–Vorst formula implemented here uses \(n\) fixings at
 \end{aligned}
 \]
 
-The geometric option is then Black–Scholes on a lognormal with that mean and
+The geometric option is then Black-Scholes on a lognormal with that mean and
 variance, discounted at \(r\).
 
 ### Adaptive paths
 
 `european_adaptive` accumulates independent batches until the standard error
-falls below a tolerance or a path cap is hit — the Monte Carlo counterpart
+falls below a tolerance or a path cap is hit - the Monte Carlo counterpart
 of adapting an integrator’s step size to a local error estimate.
 
 ## References

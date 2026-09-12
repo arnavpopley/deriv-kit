@@ -10,7 +10,7 @@ namespace derivkit {
 /// Call or put payoff direction.
 enum class OptionType { Call, Put };
 
-/// Exercise rights. European is analytical in Black–Scholes; American needs a tree.
+/// Exercise rights. European is analytical in Black-Scholes; American needs a tree.
 enum class ExerciseStyle { European, American };
 
 /// Lattice construction used by the tree engines.
@@ -45,7 +45,7 @@ struct VanillaSpec {
     double strike = 0.0;     ///< K ≥ 0
     double rate = 0.0;       ///< Continuous risk-free rate r
     double dividend = 0.0;   ///< Continuous dividend yield q
-    double vol = 0.0;        ///< Black–Scholes volatility σ ≥ 0
+    double vol = 0.0;        ///< Black-Scholes volatility σ ≥ 0
     double time = 0.0;       ///< Year-fraction to expiry T ≥ 0
     OptionType type = OptionType::Call;
 };

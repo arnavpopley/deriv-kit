@@ -21,7 +21,7 @@ struct ImpliedVolResult {
     const char* method = "";  ///< "newton", "bisection", or a failure tag
 };
 
-/// Invert Black–Scholes for σ. Newton on vega, bisection fallback.
+/// Invert Black-Scholes for σ. Newton on vega, bisection fallback.
 /// The input spec's `vol` is ignored (used only as a warm start if > 0).
 [[nodiscard]] ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
                                            const ImpliedVolConfig& cfg = {});

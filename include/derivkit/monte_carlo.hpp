@@ -30,13 +30,13 @@ struct AsianConfig {
 [[nodiscard]] PricingResult european(const VanillaSpec& spec, const McConfig& cfg = {});
 
 /// Keep drawing independent batches until the standard error is below
-/// `stderr_tol` or `max_paths` is hit — the Monte Carlo analogue of an
+/// `stderr_tol` or `max_paths` is hit - the Monte Carlo analogue of an
 /// adaptive integrator.
 [[nodiscard]] PricingResult european_adaptive(const VanillaSpec& spec,
                                               const AdaptiveMcConfig& cfg = {});
 
 /// Arithmetic-average Asian. Control variate is the geometric-average Asian,
-/// priced with the Kemna–Vorst formula (see `bs::geometric_asian`).
+/// priced with the Kemna-Vorst formula (see `bs::geometric_asian`).
 [[nodiscard]] PricingResult arithmetic_asian(const VanillaSpec& spec,
                                              const AsianConfig& cfg = {});
 

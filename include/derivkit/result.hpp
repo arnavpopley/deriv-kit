@@ -10,11 +10,11 @@ namespace derivkit {
 ///
 /// `error_estimate` is a *computable* bound or statistical error, not a
 /// marketing tolerance:
-///   - Black–Scholes: a few units in the last place (analytic).
+///   - Black-Scholes: a few units in the last place (analytic).
 ///   - Trees: |P(N) − P(⌊N/2⌋)|, a practical truncation diagnostic.
 ///   - Monte Carlo: sample standard error of the discounted payoff.
 /// Adaptive drivers keep refining until this quantity falls below a user
-/// tolerance — the same contract used by an adaptive ODE integrator.
+/// tolerance - the same contract used by an adaptive ODE integrator.
 struct PricingResult {
     double value = 0.0;
     double error_estimate = 0.0;

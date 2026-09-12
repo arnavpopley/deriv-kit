@@ -26,7 +26,7 @@ int main() {
     CHECK_NEAR(iv.vol, 0.2, 1e-10);
     CHECK_NEAR(iv.residual, 0.0, 1e-12);
 
-    // Deep OTM put, poor Newton start — bisection must still recover σ.
+    // Deep OTM put, poor Newton start - bisection must still recover σ.
     VanillaSpec otm{
         .spot = 100.0,
         .strike = 70.0,

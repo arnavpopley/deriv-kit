@@ -70,7 +70,7 @@ int main() {
     const auto am_tri = kamrad_ritchken(am, 401, ExerciseStyle::American);
     CHECK_NEAR(am_tri.value, 4.4852773512221455, 5e-3);
 
-    // Adaptive Leisen–Reimer on a European should land inside the tolerance.
+    // Adaptive Leisen-Reimer on a European should land inside the tolerance.
     derivkit::tree::AdaptiveTreeConfig acfg;
     acfg.model = TreeModel::LeisenReimer;
     acfg.abs_tol = 1e-5;

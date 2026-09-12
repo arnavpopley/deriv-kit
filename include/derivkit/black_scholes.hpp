@@ -27,7 +27,7 @@ struct Greeks {
     double d2 = 0.0;
 };
 
-/// Black–Scholes–Merton European vanilla (continuous dividend yield).
+/// Black-Scholes-Merton European vanilla (continuous dividend yield).
 [[nodiscard]] double price(const VanillaSpec& spec);
 
 /// Same value packaged as a `PricingResult` (error is a few ulps).
@@ -35,12 +35,12 @@ struct Greeks {
 
 [[nodiscard]] Greeks greeks(const VanillaSpec& spec);
 
-/// Undiscounted Black–Scholes d₁, d₂. `vol * sqrt(time)` must be positive.
+/// Undiscounted Black-Scholes d₁, d₂. `vol * sqrt(time)` must be positive.
 void d1_d2(const VanillaSpec& spec, double& d1, double& d2);
 
 /// Discounted European value of a discrete geometric-average Asian.
 /// `fixings` observations at Δt, 2Δt, …, T (S₀ is not in the average).
-/// Kemna–Vorst lognormal formula; used as the control in arithmetic-Asian MC.
+/// Kemna-Vorst lognormal formula; used as the control in arithmetic-Asian MC.
 [[nodiscard]] double geometric_asian(const VanillaSpec& spec, std::uint32_t fixings);
 
 /// Tight model-independent bounds for a European vanilla.

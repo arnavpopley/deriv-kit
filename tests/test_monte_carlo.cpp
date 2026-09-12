@@ -61,7 +61,7 @@ int main() {
     CHECK(std::abs(ad.value - bs) < 6.0 * std::max(ad.error_estimate, 1e-8));
 
     // Geometric Asian control: the control itself must recover the closed form
-    // when the arithmetic average is replaced by the geometric one — checked by
+    // when the arithmetic average is replaced by the geometric one - checked by
     // pricing the geometric option through BS and ensuring the CV Asian is at
     // least as tight as crude Asian.
     derivkit::mc::AsianConfig asian;
