@@ -84,6 +84,14 @@ int main() {
 
     CHECK_NEAR(geometric_asian(atm, 50), 5.641058127824213, 1e-12);
 
+    // Black-76 coincides with Black-Scholes when F = S e^{(r-q)T}, DF = e^{-rT}.
+    using derivkit::bs::to_black;
+    CHECK_NEAR(price(to_black(atm)), price(atm), 1e-12);
+    CHECK_NEAR(price(to_black(atm_put)), price(atm_put), 1e-12);
+    CHECK_NEAR(price(to_black(otm)), price(otm), 1e-12);
+    CHECK_NEAR(price(to_black(otm_put)), price(otm_put), 1e-12);
+    CHECK_NEAR(greeks(to_black(atm)).vega, greeks(atm).vega, 1e-10);
+
     // Expiry: option collapses to the intrinsic.
     VanillaSpec expired = atm;
     expired.time = 0.0;

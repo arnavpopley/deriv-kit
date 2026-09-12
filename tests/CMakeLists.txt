@@ -11,6 +11,8 @@ endfunction()
 derivkit_test(test_math)
 derivkit_test(test_black_scholes)
 derivkit_test(test_implied_vol)
+derivkit_test(test_implied_forward)
+derivkit_test(test_nse_calendar)
 derivkit_test(test_trees)
 derivkit_test(test_monte_carlo)
 

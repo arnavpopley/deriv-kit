@@ -1,5 +1,6 @@
 #pragma once
 
+#include "derivkit/black_scholes.hpp"
 #include "derivkit/types.hpp"
 
 namespace derivkit::bs {
@@ -24,6 +25,10 @@ struct ImpliedVolResult {
 /// Invert Black-Scholes for σ. Newton on vega, bisection fallback.
 /// The input spec's `vol` is ignored (used only as a warm start if > 0).
 [[nodiscard]] ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
+                                           const ImpliedVolConfig& cfg = {});
+
+/// Invert Black-76 for σ. Same solver; residual is Black-76(σ) − market.
+[[nodiscard]] ImpliedVolResult implied_vol(const BlackSpec& spec, double market_price,
                                            const ImpliedVolConfig& cfg = {});
 
 }  // namespace derivkit::bs

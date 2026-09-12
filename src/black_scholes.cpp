@@ -6,6 +6,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 namespace derivkit::bs {
 namespace {
@@ -142,6 +143,81 @@ Greeks greeks(const VanillaSpec& spec) {
                   spec.rate * spec.strike * df_r * nmd2 - spec.dividend * spec.spot * df_q * nmd1;
         g.rho = -spec.strike * spec.time * df_r * nmd2;
     }
+    return g;
+}
+
+void validate(const BlackSpec& spec) {
+    auto require_finite = [](double x, const char* name) {
+        if (!std::isfinite(x)) {
+            throw std::invalid_argument(std::string(name) + " must be finite");
+        }
+    };
+    require_finite(spec.forward, "forward");
+    require_finite(spec.strike, "strike");
+    require_finite(spec.discount, "discount");
+    require_finite(spec.vol, "vol");
+    require_finite(spec.time_vol, "time_vol");
+    if (spec.forward <= 0.0) {
+        throw std::invalid_argument("forward must be positive");
+    }
+    if (spec.strike < 0.0) {
+        throw std::invalid_argument("strike must be non-negative");
+    }
+    if (!(spec.discount > 0.0)) {
+        throw std::invalid_argument("discount must be positive");
+    }
+    if (spec.vol < 0.0) {
+        throw std::invalid_argument("vol must be non-negative");
+    }
+    if (spec.time_vol < 0.0) {
+        throw std::invalid_argument("time_vol must be non-negative");
+    }
+}
+
+namespace {
+
+VanillaSpec undiscounted_black(const BlackSpec& spec) {
+    VanillaSpec v;
+    v.spot = spec.forward;
+    v.strike = spec.strike;
+    v.rate = 0.0;
+    v.dividend = 0.0;
+    v.vol = spec.vol;
+    v.time = spec.time_vol;
+    v.type = spec.type;
+    return v;
+}
+
+}  // namespace
+
+double intrinsic_discounted(const BlackSpec& spec) {
+    validate(spec);
+    return spec.discount * payoff(spec.forward, spec.strike, spec.type);
+}
+
+double upper_bound(const BlackSpec& spec) {
+    validate(spec);
+    if (spec.type == OptionType::Call) {
+        return spec.discount * spec.forward;
+    }
+    return spec.discount * spec.strike;
+}
+
+double price(const BlackSpec& spec) {
+    validate(spec);
+    return spec.discount * price(undiscounted_black(spec));
+}
+
+Greeks greeks(const BlackSpec& spec) {
+    validate(spec);
+    Greeks g = greeks(undiscounted_black(spec));
+    g.delta *= spec.discount;  // ∂V/∂F
+    g.gamma *= spec.discount;
+    g.vega *= spec.discount;
+    g.theta *= spec.discount;  // ∂V/∂T_vol, DF held fixed
+    g.vanna *= spec.discount;
+    g.volga *= spec.discount;
+    g.rho = 0.0;  // r lives in DF, not in the forward measure
     return g;
 }
 

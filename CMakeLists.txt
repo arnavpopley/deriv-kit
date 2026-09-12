@@ -28,6 +28,8 @@ add_library(derivkit
     src/rng.cpp
     src/black_scholes.cpp
     src/implied_vol.cpp
+    src/implied_forward.cpp
+    src/nse_calendar.cpp
     src/trees.cpp
     src/monte_carlo.cpp
 )

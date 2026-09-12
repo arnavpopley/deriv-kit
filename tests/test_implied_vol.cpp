@@ -7,6 +7,7 @@ int main() {
     using derivkit::VanillaSpec;
     using derivkit::bs::implied_vol;
     using derivkit::bs::price;
+    using derivkit::bs::to_black;
 
     const VanillaSpec spec{
         .spot = 100.0,
@@ -60,6 +61,13 @@ int main() {
     // Price below intrinsic is rejected.
     auto bad = implied_vol(spec, -1.0);
     CHECK(!bad.converged);
+
+    // Black-76 inversion matches the spot solver on the equivalent spec.
+    VanillaSpec blk_round = otm;
+    blk_round.vol = 0.35;
+    auto iv_blk = implied_vol(to_black(blk_round), otm_px);
+    CHECK(iv_blk.converged);
+    CHECK_NEAR(iv_blk.vol, 0.35, 1e-8);
 
     return derivkit::test::summarize("test_implied_vol");
 }

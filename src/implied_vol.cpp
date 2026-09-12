@@ -7,17 +7,12 @@
 #include <stdexcept>
 
 namespace derivkit::bs {
+namespace {
 
-ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
-                             const ImpliedVolConfig& cfg) {
-    validate(spec);
-    if (!std::isfinite(market_price)) {
-        throw std::invalid_argument("market_price must be finite");
-    }
-
+template <typename PriceFn, typename VegaFn>
+ImpliedVolResult invert_vol(double market_price, double warm_start, double lower, double upper,
+                            const ImpliedVolConfig& cfg, PriceFn priced, VegaFn vega_of) {
     ImpliedVolResult out;
-    const double lower = intrinsic_discounted(spec);
-    const double upper = upper_bound(spec);
     const double scale = std::max({1.0, std::abs(market_price), std::abs(lower)});
     const double tol = std::max(cfg.abs_tol, cfg.rel_tol * scale);
 
@@ -32,27 +27,13 @@ ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
         return out;
     }
 
-    // Prices hugging the intrinsic/upper bound map to σ → 0 or σ → ∞.
     if (std::abs(market_price - lower) <= tol) {
         out.vol = 0.0;
-        VanillaSpec s = spec;
-        s.vol = 0.0;
-        out.residual = price(s) - market_price;
+        out.residual = priced(0.0) - market_price;
         out.converged = true;
         out.method = "zero-vol";
         return out;
     }
-
-    auto priced = [&](double sigma) {
-        VanillaSpec s = spec;
-        s.vol = sigma;
-        return price(s);
-    };
-    auto vega_of = [&](double sigma) {
-        VanillaSpec s = spec;
-        s.vol = sigma;
-        return greeks(s).vega;
-    };
 
     double lo = cfg.lo;
     double hi = cfg.hi;
@@ -60,7 +41,7 @@ ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
         hi *= 2.0;
     }
 
-    double sigma = spec.vol > 0.0 ? spec.vol : 0.2;
+    double sigma = warm_start > 0.0 ? warm_start : 0.2;
     sigma = std::clamp(sigma, lo, hi);
 
     int it = 0;
@@ -85,11 +66,9 @@ ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
         }
     }
 
-    // Bisection on a bracket that is known to contain the root.
     double f_lo = priced(lo) - market_price;
     double f_hi = priced(hi) - market_price;
     if (f_lo * f_hi > 0.0) {
-        // Expand until we bracket or give up.
         for (int k = 0; k < 20 && f_lo * f_hi > 0.0; ++k) {
             lo *= 0.5;
             hi *= 1.5;
@@ -126,6 +105,48 @@ ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
 
     out.method = "max-iterations";
     return out;
+}
+
+}  // namespace
+
+ImpliedVolResult implied_vol(const VanillaSpec& spec, double market_price,
+                             const ImpliedVolConfig& cfg) {
+    validate(spec);
+    if (!std::isfinite(market_price)) {
+        throw std::invalid_argument("market_price must be finite");
+    }
+    return invert_vol(
+        market_price, spec.vol, intrinsic_discounted(spec), upper_bound(spec), cfg,
+        [&](double sigma) {
+            VanillaSpec s = spec;
+            s.vol = sigma;
+            return price(s);
+        },
+        [&](double sigma) {
+            VanillaSpec s = spec;
+            s.vol = sigma;
+            return greeks(s).vega;
+        });
+}
+
+ImpliedVolResult implied_vol(const BlackSpec& spec, double market_price,
+                             const ImpliedVolConfig& cfg) {
+    validate(spec);
+    if (!std::isfinite(market_price)) {
+        throw std::invalid_argument("market_price must be finite");
+    }
+    return invert_vol(
+        market_price, spec.vol, intrinsic_discounted(spec), upper_bound(spec), cfg,
+        [&](double sigma) {
+            BlackSpec s = spec;
+            s.vol = sigma;
+            return price(s);
+        },
+        [&](double sigma) {
+            BlackSpec s = spec;
+            s.vol = sigma;
+            return greeks(s).vega;
+        });
 }
 
 }  // namespace derivkit::bs

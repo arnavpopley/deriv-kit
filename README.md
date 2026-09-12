@@ -23,7 +23,7 @@ and control variates.
 | Monte Carlo (exact GBM) | European, arithmetic Asian | sample standard error |
 | Antithetic + control variates | Europeans (control = S_T); Asians (control = geometric) | reduced standard error |
 | Adaptive drivers | trees double N; MC grows paths | user `abs_tol` / `stderr_tol` |
-| Groww option chain | live NIFTY / BANKNIFTY / stocks → derivkit prices | BS vs LTP, IV vs Groww IV |
+| Groww option chain | live NIFTY / BANKNIFTY / stocks → derivkit prices | Black-76 vs LTP (Rs), IV vs Groww IV (vol points) |
 
 The core library has no third-party dependencies. Headers, a static library, CTest,
 examples (including a Groww option-chain client), and GitHub Actions CI.
@@ -156,29 +156,38 @@ docs/methods.md     formulas and references
 ## Live NIFTY chain via Groww
 
 `examples/groww_chain` pulls an option chain from the [Groww Trading API](https://groww.in/trade-api/docs/curl/live-data)
-and prices every nearby strike with Black-Scholes and a Leisen-Reimer tree. It prints
-Groww's last traded price next to the model, and implied vol / delta next to Groww's
-own Greeks.
+and prices nearby strikes with **Black-76**. Vol time is NSE business days / 252;
+discounting is ACT/365.25. When the cash market is shut (weekend, holiday, or after
+15:30 IST) the as-of timestamp snaps to the previous session close so Saturday does
+not look like extra calendar time on top of Friday's last print. Monday 14 Sep 2026
+(Ganesh Chaturthi) is treated as a holiday.
+
+The forward and discount factor are implied from put-call parity,
+`C - P = DF * (F - K)`, by a weighted OLS fit on liquid CE/PE pairs. Pass `--rate`
+and/or `--div` to skip that fit and use a carry override instead.
 
 ```bash
 # Offline demo (no account) - bundled NIFTY fixture
 ./build/examples/groww_chain
 
-# Live NIFTY, nearest expiry (token from Groww → Settings → Trading APIs)
+# Live NIFTY, nearest expiry (token from Groww -> Settings -> Trading APIs)
 export GROWW_ACCESS_TOKEN=...
 ./build/examples/groww_chain NIFTY
 
-# Other underlyings, specific expiry
+# Other underlyings, specific expiry, valuation date
 ./build/examples/groww_chain BANKNIFTY --expiry 2026-09-29
+./build/examples/groww_chain NIFTY --as-of 2026-09-11
 ./build/examples/groww_chain RELIANCE --strikes 4 --mc
+./build/examples/groww_chain NIFTY --rate 0.065 --div 0.012
 ```
 
 Copy `.env.example` and fill `GROWW_ACCESS_TOKEN`, or use `GROWW_API_KEY` +
 `GROWW_API_SECRET` / `GROWW_TOTP`. Live mode needs `curl` on `PATH`. Without
 credentials the example still runs against `examples/data/nifty_chain.json`.
 
-Columns: **LTP** is Groww's market, **BS** is Black-Scholes using Groww's IV,
-**LR** is the tree, **iv%** is derivkit's implied vol from LTP, **ivG%** is Groww.
+Columns: **LTP** is Groww's market, **BS** is Black-76 using Groww's IV and the
+implied (or override) forward, **Rs** is `BS - LTP` in rupees, **iv%** is derivkit's
+implied vol from LTP, **ivG%** is Groww, **volpts** is `100 * (iv_from_LTP - Groww_IV)`.
 
 ## Install
 

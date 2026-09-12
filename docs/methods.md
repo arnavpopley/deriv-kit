@@ -33,6 +33,33 @@ are handled as discounted forwards, not as `0/0` in \(d_1\).
 
 Reported error: a few units in the last place of the computed price.
 
+## Black-76
+
+When the numeraire is a discount factor `DF` and the underlying is a forward `F`,
+
+\[
+\begin{aligned}
+C &= \mathrm{DF}\,\bigl(F\,\Phi(d_1) - K\,\Phi(d_2)\bigr),\\
+P &= \mathrm{DF}\,\bigl(K\,\Phi(-d_2) - F\,\Phi(-d_1)\bigr),
+\end{aligned}
+\]
+
+with \(d_{1,2} = (\ln(F/K) \pm \tfrac12\sigma^2 T_{\mathrm{vol}})/(\sigma\sqrt{T_{\mathrm{vol}}})\).
+`T_vol` need not equal the calendar year-fraction used to build `DF`. The
+identity `Black-76(F=S e^{(r-q)T}, DF=e^{-rT}, T_vol=T) = Black-Scholes` is
+tested.
+
+## NSE clock and implied forward
+
+For listed NSE options the Groww example splits time: `T_rate` is ACT/365.25
+from the last cash-market print to expiry (15:30 IST), and `T_vol` is remaining
+NSE trading sessions (6.25-hour fraction on the as-of day) divided by 252.
+Weekends and the 2026 weekday holidays are skipped; the Diwali Muhurat session
+on 8 Nov 2026 counts as a trading day.
+
+The forward is not `S e^{(r-q)T}` with a hardcoded `r` and `q`. Liquid CE/PE
+pairs are fit by weighted OLS to put-call parity `C - P = DF (F - K)`.
+
 ## Implied volatility
 
 Newton’s method on \(\sigma \mapsto V_{\mathrm{BS}}(\sigma) - V_{\mathrm{mkt}}\)
@@ -129,6 +156,7 @@ of adapting an integrator’s step size to a local error estimate.
 ## References
 
 - F. Black, M. Scholes, *The pricing of options and corporate liabilities*, JPE 1973.
+- F. Black, *The pricing of commodity contracts*, JFE 1976.
 - J. C. Cox, S. A. Ross, M. Rubinstein, *Option pricing: a simplified approach*, JFE 1979.
 - D. Leisen, M. Reimer, *Binomial models for option valuation*, OR Spektrum 1996.
 - B. Kamrad, P. Ritchken, *Multinomial approximating models*, Management Science 1991.

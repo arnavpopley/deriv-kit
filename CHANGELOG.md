@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Black-76 on a forward, with an identity to Black-Scholes-Merton when
+  `F = S e^{(r-q)T}` and `DF = e^{-rT}`
+- Implied forward from put-call parity (weighted OLS on `C - P = DF (F - K)`)
+- NSE F&O calendar: session snap to last close, Ganesh Chaturthi 2026-09-14,
+  Muhurat 2026-11-08 counted as a trading day
+- `groww_chain` prices with Black-76, `T_vol` = trading days / 252, `T_rate` =
+  ACT/365.25, residuals in rupees and vol points
+
 ## 1.0.0 - 2026-09-12
 
 First public release.
