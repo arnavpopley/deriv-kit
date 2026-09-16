@@ -1,0 +1,765 @@
+{
+  "status": "SUCCESS",
+  "source": "fixture",
+  "underlying": "NIFTY",
+  "exchange": "NSE",
+  "expiry_date": "2026-09-29",
+  "rate": 0.065,
+  "dividend": 0.012,
+  "year_fraction": 0.04657534246575343,
+  "payload": {
+    "underlying_ltp": 25012.4,
+    "strikes": {
+      "24400": {
+        "CE": {
+          "greeks": {
+            "delta": 0.8592,
+            "gamma": 0.000348,
+            "theta": -7.1831,
+            "vega": 12.0266,
+            "rho": 967.4743,
+            "iv": 11.8468
+          },
+          "trading_symbol": "NIFTY26SEP24400CE",
+          "ltp": 721.3,
+          "open_interest": 80,
+          "volume": 28
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.1402,
+            "gamma": 0.000348,
+            "theta": -3.6729,
+            "vega": 12.0266,
+            "rho": -165.5288,
+            "iv": 11.8468
+          },
+          "trading_symbol": "NIFTY26SEP24400PE",
+          "ltp": 46.1,
+          "open_interest": 80,
+          "volume": 28
+        }
+      },
+      "24450": {
+        "CE": {
+          "greeks": {
+            "delta": 0.8427,
+            "gamma": 0.000379,
+            "theta": -7.4147,
+            "vega": 12.956,
+            "rho": 950.2636,
+            "iv": 11.7417
+          },
+          "trading_symbol": "NIFTY26SEP24450CE",
+          "ltp": 677.66,
+          "open_interest": 114,
+          "volume": 39
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.1568,
+            "gamma": 0.000379,
+            "theta": -3.8956,
+            "vega": 12.956,
+            "rho": -185.0612,
+            "iv": 11.7417
+          },
+          "trading_symbol": "NIFTY26SEP24450PE",
+          "ltp": 52.47,
+          "open_interest": 114,
+          "volume": 39
+        }
+      },
+      "24500": {
+        "CE": {
+          "greeks": {
+            "delta": 0.8245,
+            "gamma": 0.00041,
+            "theta": -7.6445,
+            "vega": 13.9074,
+            "rho": 931.0934,
+            "iv": 11.643
+          },
+          "trading_symbol": "NIFTY26SEP24500CE",
+          "ltp": 634.89,
+          "open_interest": 269,
+          "volume": 94
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.1749,
+            "gamma": 0.00041,
+            "theta": -4.1165,
+            "vega": 13.9074,
+            "rho": -206.5532,
+            "iv": 11.643
+          },
+          "trading_symbol": "NIFTY26SEP24500PE",
+          "ltp": 59.7,
+          "open_interest": 269,
+          "volume": 94
+        }
+      },
+      "24550": {
+        "CE": {
+          "greeks": {
+            "delta": 0.8047,
+            "gamma": 0.000442,
+            "theta": -7.8687,
+            "vega": 14.8691,
+            "rho": 909.8915,
+            "iv": 11.5507
+          },
+          "trading_symbol": "NIFTY26SEP24550CE",
+          "ltp": 593.1,
+          "open_interest": 588,
+          "volume": 205
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.1948,
+            "gamma": 0.000442,
+            "theta": -4.3319,
+            "vega": 14.8691,
+            "rho": -230.0768,
+            "iv": 11.5507
+          },
+          "trading_symbol": "NIFTY26SEP24550PE",
+          "ltp": 67.9,
+          "open_interest": 588,
+          "volume": 205
+        }
+      },
+      "24600": {
+        "CE": {
+          "greeks": {
+            "delta": 0.7831,
+            "gamma": 0.000474,
+            "theta": -8.083,
+            "vega": 15.8273,
+            "rho": 886.6126,
+            "iv": 11.4648
+          },
+          "trading_symbol": "NIFTY26SEP24600CE",
+          "ltp": 552.37,
+          "open_interest": 1184,
+          "volume": 414
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.2164,
+            "gamma": 0.000474,
+            "theta": -4.5373,
+            "vega": 15.8273,
+            "rho": -255.6774,
+            "iv": 11.4648
+          },
+          "trading_symbol": "NIFTY26SEP24600PE",
+          "ltp": 77.15,
+          "open_interest": 1184,
+          "volume": 414
+        }
+      },
+      "24650": {
+        "CE": {
+          "greeks": {
+            "delta": 0.7597,
+            "gamma": 0.000505,
+            "theta": -8.2827,
+            "vega": 16.7664,
+            "rho": 861.2434,
+            "iv": 11.3853
+          },
+          "trading_symbol": "NIFTY26SEP24650CE",
+          "ltp": 512.81,
+          "open_interest": 2201,
+          "volume": 770
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.2397,
+            "gamma": 0.000505,
+            "theta": -4.7281,
+            "vega": 16.7664,
+            "rho": -283.3684,
+            "iv": 11.3853
+          },
+          "trading_symbol": "NIFTY26SEP24650PE",
+          "ltp": 87.57,
+          "open_interest": 2201,
+          "volume": 770
+        }
+      },
+      "24700": {
+        "CE": {
+          "greeks": {
+            "delta": 0.7346,
+            "gamma": 0.000536,
+            "theta": -8.4628,
+            "vega": 17.6694,
+            "rho": 833.8078,
+            "iv": 11.3121
+          },
+          "trading_symbol": "NIFTY26SEP24700CE",
+          "ltp": 474.52,
+          "open_interest": 3776,
+          "volume": 1321
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.2648,
+            "gamma": 0.000536,
+            "theta": -4.8993,
+            "vega": 17.6694,
+            "rho": -313.1256,
+            "iv": 11.3121
+          },
+          "trading_symbol": "NIFTY26SEP24700PE",
+          "ltp": 99.24,
+          "open_interest": 3776,
+          "volume": 1321
+        }
+      },
+      "24750": {
+        "CE": {
+          "greeks": {
+            "delta": 0.7079,
+            "gamma": 0.000565,
+            "theta": -8.6182,
+            "vega": 18.518,
+            "rho": 804.3716,
+            "iv": 11.2454
+          },
+          "trading_symbol": "NIFTY26SEP24750CE",
+          "ltp": 437.59,
+          "open_interest": 5981,
+          "volume": 2093
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.2915,
+            "gamma": 0.000565,
+            "theta": -5.0459,
+            "vega": 18.518,
+            "rho": -344.8836,
+            "iv": 11.2454
+          },
+          "trading_symbol": "NIFTY26SEP24750PE",
+          "ltp": 112.27,
+          "open_interest": 5981,
+          "volume": 2093
+        }
+      },
+      "24800": {
+        "CE": {
+          "greeks": {
+            "delta": 0.6796,
+            "gamma": 0.000592,
+            "theta": -8.744,
+            "vega": 19.2938,
+            "rho": 773.0447,
+            "iv": 11.1851
+          },
+          "trading_symbol": "NIFTY26SEP24800CE",
+          "ltp": 402.13,
+          "open_interest": 8745,
+          "volume": 3060
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.3198,
+            "gamma": 0.000592,
+            "theta": -5.1628,
+            "vega": 19.2938,
+            "rho": -378.5323,
+            "iv": 11.1851
+          },
+          "trading_symbol": "NIFTY26SEP24800PE",
+          "ltp": 126.76,
+          "open_interest": 8745,
+          "volume": 3060
+        }
+      },
+      "24850": {
+        "CE": {
+          "greeks": {
+            "delta": 0.6499,
+            "gamma": 0.000616,
+            "theta": -8.8356,
+            "vega": 19.9783,
+            "rho": 739.9832,
+            "iv": 11.1311
+          },
+          "trading_symbol": "NIFTY26SEP24850CE",
+          "ltp": 368.21,
+          "open_interest": 11803,
+          "volume": 4131
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.3496,
+            "gamma": 0.000616,
+            "theta": -5.2455,
+            "vega": 19.9783,
+            "rho": -413.9155,
+            "iv": 11.1311
+          },
+          "trading_symbol": "NIFTY26SEP24850PE",
+          "ltp": 142.78,
+          "open_interest": 11803,
+          "volume": 4131
+        }
+      },
+      "24900": {
+        "CE": {
+          "greeks": {
+            "delta": 0.6189,
+            "gamma": 0.000636,
+            "theta": -8.8886,
+            "vega": 20.5544,
+            "rho": 705.3883,
+            "iv": 11.0836
+          },
+          "trading_symbol": "NIFTY26SEP24900CE",
+          "ltp": 335.93,
+          "open_interest": 14705,
+          "volume": 5146
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.3806,
+            "gamma": 0.000636,
+            "theta": -5.2897,
+            "vega": 20.5544,
+            "rho": -450.8321,
+            "iv": 11.0836
+          },
+          "trading_symbol": "NIFTY26SEP24900PE",
+          "ltp": 160.41,
+          "open_interest": 14705,
+          "volume": 5146
+        }
+      },
+      "24950": {
+        "CE": {
+          "greeks": {
+            "delta": 0.5869,
+            "gamma": 0.000653,
+            "theta": -8.8998,
+            "vega": 21.0068,
+            "rho": 669.5036,
+            "iv": 11.0424
+          },
+          "trading_symbol": "NIFTY26SEP24950CE",
+          "ltp": 305.34,
+          "open_interest": 16912,
+          "volume": 5919
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.4126,
+            "gamma": 0.000653,
+            "theta": -5.2919,
+            "vega": 21.0068,
+            "rho": -489.0385,
+            "iv": 11.0424
+          },
+          "trading_symbol": "NIFTY26SEP24950PE",
+          "ltp": 179.74,
+          "open_interest": 16912,
+          "volume": 5919
+        }
+      },
+      "25000": {
+        "CE": {
+          "greeks": {
+            "delta": 0.554,
+            "gamma": 0.000665,
+            "theta": -8.8666,
+            "vega": 21.3228,
+            "rho": 632.61,
+            "iv": 11.0076
+          },
+          "trading_symbol": "NIFTY26SEP25000CE",
+          "ltp": 276.5,
+          "open_interest": 17955,
+          "volume": 6284
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.4454,
+            "gamma": 0.000665,
+            "theta": -5.2498,
+            "vega": 21.3228,
+            "rho": -528.2538,
+            "iv": 11.0076
+          },
+          "trading_symbol": "NIFTY26SEP25000PE",
+          "ltp": 200.8,
+          "open_interest": 17955,
+          "volume": 6284
+        }
+      },
+      "25050": {
+        "CE": {
+          "greeks": {
+            "delta": 0.5207,
+            "gamma": 0.00067,
+            "theta": -8.8053,
+            "vega": 21.4932,
+            "rho": 594.9555,
+            "iv": 11.0078
+          },
+          "trading_symbol": "NIFTY26SEP25050CE",
+          "ltp": 250.07,
+          "open_interest": 17597,
+          "volume": 6158
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.4788,
+            "gamma": 0.00067,
+            "theta": -5.1797,
+            "vega": 21.4932,
+            "rho": -568.2301,
+            "iv": 11.0078
+          },
+          "trading_symbol": "NIFTY26SEP25050PE",
+          "ltp": 224.25,
+          "open_interest": 17597,
+          "volume": 6158
+        }
+      },
+      "25100": {
+        "CE": {
+          "greeks": {
+            "delta": 0.4872,
+            "gamma": 0.00067,
+            "theta": -8.7046,
+            "vega": 21.5124,
+            "rho": 557.1511,
+            "iv": 11.0238
+          },
+          "trading_symbol": "NIFTY26SEP25100CE",
+          "ltp": 225.65,
+          "open_interest": 15920,
+          "volume": 5572
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.5122,
+            "gamma": 0.00067,
+            "theta": -5.0701,
+            "vega": 21.5124,
+            "rho": -608.3562,
+            "iv": 11.0238
+          },
+          "trading_symbol": "NIFTY26SEP25100PE",
+          "ltp": 249.7,
+          "open_interest": 15920,
+          "volume": 5572
+        }
+      },
+      "25150": {
+        "CE": {
+          "greeks": {
+            "delta": 0.4541,
+            "gamma": 0.000664,
+            "theta": -8.56,
+            "vega": 21.3819,
+            "rho": 519.5911,
+            "iv": 11.0462
+          },
+          "trading_symbol": "NIFTY26SEP25150CE",
+          "ltp": 203.04,
+          "open_interest": 13295,
+          "volume": 4653
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.5453,
+            "gamma": 0.000664,
+            "theta": -4.9166,
+            "vega": 21.3819,
+            "rho": -648.2379,
+            "iv": 11.0462
+          },
+          "trading_symbol": "NIFTY26SEP25150PE",
+          "ltp": 276.95,
+          "open_interest": 13295,
+          "volume": 4653
+        }
+      },
+      "25200": {
+        "CE": {
+          "greeks": {
+            "delta": 0.4215,
+            "gamma": 0.000654,
+            "theta": -8.3741,
+            "vega": 21.1076,
+            "rho": 482.6032,
+            "iv": 11.075
+          },
+          "trading_symbol": "NIFTY26SEP25200CE",
+          "ltp": 182.2,
+          "open_interest": 10249,
+          "volume": 3587
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.5779,
+            "gamma": 0.000654,
+            "theta": -4.7219,
+            "vega": 21.1076,
+            "rho": -687.5475,
+            "iv": 11.075
+          },
+          "trading_symbol": "NIFTY26SEP25200PE",
+          "ltp": 305.96,
+          "open_interest": 10249,
+          "volume": 3587
+        }
+      },
+      "25250": {
+        "CE": {
+          "greeks": {
+            "delta": 0.3898,
+            "gamma": 0.000639,
+            "theta": -8.1505,
+            "vega": 20.6992,
+            "rho": 446.4927,
+            "iv": 11.1102
+          },
+          "trading_symbol": "NIFTY26SEP25250CE",
+          "ltp": 163.09,
+          "open_interest": 7294,
+          "volume": 2552
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.6097,
+            "gamma": 0.000639,
+            "theta": -4.4894,
+            "vega": 20.6992,
+            "rho": -725.9798,
+            "iv": 11.1102
+          },
+          "trading_symbol": "NIFTY26SEP25250PE",
+          "ltp": 336.68,
+          "open_interest": 7294,
+          "volume": 2552
+        }
+      },
+      "25300": {
+        "CE": {
+          "greeks": {
+            "delta": 0.3591,
+            "gamma": 0.000621,
+            "theta": -7.8936,
+            "vega": 20.1693,
+            "rho": 411.534,
+            "iv": 11.1518
+          },
+          "trading_symbol": "NIFTY26SEP25300CE",
+          "ltp": 145.66,
+          "open_interest": 4792,
+          "volume": 1677
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.6404,
+            "gamma": 0.000621,
+            "theta": -4.2236,
+            "vega": 20.1693,
+            "rho": -763.2602,
+            "iv": 11.1518
+          },
+          "trading_symbol": "NIFTY26SEP25300PE",
+          "ltp": 369.06,
+          "open_interest": 4792,
+          "volume": 1677
+        }
+      },
+      "25350": {
+        "CE": {
+          "greeks": {
+            "delta": 0.3296,
+            "gamma": 0.000599,
+            "theta": -7.6084,
+            "vega": 19.5331,
+            "rho": 377.9646,
+            "iv": 11.1997
+          },
+          "trading_symbol": "NIFTY26SEP25350CE",
+          "ltp": 129.82,
+          "open_interest": 2906,
+          "volume": 1017
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.6698,
+            "gamma": 0.000599,
+            "theta": -3.9295,
+            "vega": 19.5331,
+            "rho": -799.1514,
+            "iv": 11.1997
+          },
+          "trading_symbol": "NIFTY26SEP25350PE",
+          "ltp": 403.03,
+          "open_interest": 2906,
+          "volume": 1017
+        }
+      },
+      "25400": {
+        "CE": {
+          "greeks": {
+            "delta": 0.3016,
+            "gamma": 0.000574,
+            "theta": -7.3002,
+            "vega": 18.8074,
+            "rho": 345.9801,
+            "iv": 11.2541
+          },
+          "trading_symbol": "NIFTY26SEP25400CE",
+          "ltp": 115.49,
+          "open_interest": 1626,
+          "volume": 569
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.6979,
+            "gamma": 0.000574,
+            "theta": -3.6124,
+            "vega": 18.8074,
+            "rho": -833.4576,
+            "iv": 11.2541
+          },
+          "trading_symbol": "NIFTY26SEP25400PE",
+          "ltp": 438.51,
+          "open_interest": 1626,
+          "volume": 569
+        }
+      },
+      "25450": {
+        "CE": {
+          "greeks": {
+            "delta": 0.2751,
+            "gamma": 0.000546,
+            "theta": -6.9745,
+            "vega": 18.0101,
+            "rho": 315.7324,
+            "iv": 11.3149
+          },
+          "trading_symbol": "NIFTY26SEP25450CE",
+          "ltp": 102.6,
+          "open_interest": 840,
+          "volume": 294
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.7243,
+            "gamma": 0.000546,
+            "theta": -3.2779,
+            "vega": 18.0101,
+            "rho": -866.027,
+            "iv": 11.3149
+          },
+          "trading_symbol": "NIFTY26SEP25450PE",
+          "ltp": 475.4,
+          "open_interest": 840,
+          "volume": 294
+        }
+      },
+      "25500": {
+        "CE": {
+          "greeks": {
+            "delta": 0.2503,
+            "gamma": 0.000517,
+            "theta": -6.637,
+            "vega": 17.1588,
+            "rho": 287.3294,
+            "iv": 11.382
+          },
+          "trading_symbol": "NIFTY26SEP25500CE",
+          "ltp": 91.03,
+          "open_interest": 401,
+          "volume": 140
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.7492,
+            "gamma": 0.000517,
+            "theta": -2.9315,
+            "vega": 17.1588,
+            "rho": -896.7517,
+            "iv": 11.382
+          },
+          "trading_symbol": "NIFTY26SEP25500PE",
+          "ltp": 513.62,
+          "open_interest": 401,
+          "volume": 140
+        }
+      },
+      "25550": {
+        "CE": {
+          "greeks": {
+            "delta": 0.2271,
+            "gamma": 0.000487,
+            "theta": -6.2928,
+            "vega": 16.2712,
+            "rho": 260.8365,
+            "iv": 11.4555
+          },
+          "trading_symbol": "NIFTY26SEP25550CE",
+          "ltp": 80.7,
+          "open_interest": 176,
+          "volume": 61
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.7723,
+            "gamma": 0.000487,
+            "theta": -2.5784,
+            "vega": 16.2712,
+            "rho": -925.5664,
+            "iv": 11.4555
+          },
+          "trading_symbol": "NIFTY26SEP25550PE",
+          "ltp": 553.06,
+          "open_interest": 176,
+          "volume": 61
+        }
+      },
+      "25600": {
+        "CE": {
+          "greeks": {
+            "delta": 0.2057,
+            "gamma": 0.000457,
+            "theta": -5.9468,
+            "vega": 15.3633,
+            "rho": 236.2798,
+            "iv": 11.5355
+          },
+          "trading_symbol": "NIFTY26SEP25600CE",
+          "ltp": 71.5,
+          "open_interest": 80,
+          "volume": 28
+        },
+        "PE": {
+          "greeks": {
+            "delta": -0.7938,
+            "gamma": 0.000457,
+            "theta": -2.2235,
+            "vega": 15.3633,
+            "rho": -952.4447,
+            "iv": 11.5355
+          },
+          "trading_symbol": "NIFTY26SEP25600PE",
+          "ltp": 593.62,
+          "open_interest": 80,
+          "volume": 28
+        }
+      }
+    }
+  }
+}

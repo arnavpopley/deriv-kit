@@ -5,36 +5,18 @@ on:
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        compiler: [g++, clang++]
-        build_type: [Release]
+        python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Configure
-        env:
-          CXX: ${{ matrix.compiler }}
-        run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DDERIVKIT_WERROR=ON \
-            -DDERIVKIT_BUILD_TESTS=ON \
-            -DDERIVKIT_BUILD_EXAMPLES=ON
-      - name: Build
-        run: cmake --build build --parallel
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev]"
       - name: Test
-        run: ctest --test-dir build --output-on-failure
-      - name: Sanitizers
-        if: matrix.compiler == 'g++'
-        env:
-          CXX: g++
-        run: |
-          cmake -S . -B build-san \
-            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DDERIVKIT_WERROR=ON \
-            -DDERIVKIT_SANITIZE=ON
-          cmake --build build-san --parallel
-          ctest --test-dir build-san --output-on-failure
+        run: pytest

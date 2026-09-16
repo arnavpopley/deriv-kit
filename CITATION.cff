@@ -6,10 +6,10 @@ authors:
   - family-names: Popley
     given-names: Arnav
     email: arnavpopley@gmail.com
-version: 1.0.0
-date-released: "2026-09-12"
+version: 2.0.0
+date-released: "2026-09-16"
 license: MIT
 abstract: >
-  A C++20 derivatives pricing toolkit with Black-Scholes analytics, binomial
+  A Python derivatives pricing toolkit with Black-Scholes analytics, binomial
   and trinomial trees, and Monte Carlo methods including antithetic and
   control variates, designed around explicit numerical error control.

@@ -1,14 +1,13 @@
 # derivkit
 
-C++20 toolkit for pricing derivative contracts with **explicit numerical error control**.
+Python toolkit for pricing derivative contracts with **explicit numerical error control**.
 
 The same discipline that makes a CR3BP integrator trustworthy - adaptive refinement, a
 computable error estimate, and tests that check orders of accuracy - is applied here to
 Black-Scholes analytics, binomial and trinomial trees, and Monte Carlo with antithetic
 and control variates.
 
-[![C++](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](CMakeLists.txt)
-[![CMake](https://img.shields.io/badge/CMake-3.16%2B-green.svg)](CMakeLists.txt)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
@@ -25,41 +24,49 @@ and control variates.
 | Adaptive drivers | trees double N; MC grows paths | user `abs_tol` / `stderr_tol` |
 | Groww option chain | live NIFTY / BANKNIFTY / stocks → derivkit prices | Black-76 vs LTP (Rs), IV vs Groww IV (vol points) |
 
-The core library has no third-party dependencies. Headers, a static library, CTest,
-examples (including a Groww option-chain client), and GitHub Actions CI.
+The core library has no third-party dependencies. Tests use pytest. Examples include a
+Groww option-chain client.
 
 ## Quick start
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-./build/examples/vanilla_comparison
-./build/examples/groww_chain          # bundled NIFTY chain; live with GROWW_ACCESS_TOKEN
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
+python examples/vanilla_comparison.py
+python examples/groww_chain.py          # bundled NIFTY chain; live with GROWW_ACCESS_TOKEN
 ```
 
-A C++20 compiler is required (GCC 11+, Clang 14+, or MSVC 2022). If `c++` on your
-PATH is a Clang that cannot find `libstdc++`, configure with `CXX=g++`.
+Python 3.11 or newer is required.
 
-```cpp
-#include "derivkit/derivkit.hpp"
+```python
+from derivkit import (
+    OptionType,
+    VanillaSpec,
+    VarianceReduction,
+    european,
+    greeks,
+    leisen_reimer,
+    price,
+)
+from derivkit.monte_carlo import AdaptiveMcConfig, McConfig, european_adaptive
+from derivkit.trees import AdaptiveTreeConfig, adaptive
 
-using namespace derivkit;
+spec = VanillaSpec(
+    spot=100, strike=100, rate=0.05,
+    dividend=0.0, vol=0.20, time=1.0,
+    type=OptionType.CALL,
+)
 
-VanillaSpec spec{
-    .spot = 100, .strike = 100, .rate = 0.05,
-    .dividend = 0.0, .vol = 0.20, .time = 1.0,
-    .type = OptionType::Call,
-};
-
-double analytic = bs::price(spec);
-auto greeks    = bs::greeks(spec);
-auto tree_px   = tree::leisen_reimer(spec, 101);
-auto mc_px     = mc::european(spec, {
-    .paths = 100000,
-    .seed = 1,
-    .vr = VarianceReduction::Antithetic | VarianceReduction::ControlVariate,
-});
+analytic = price(spec)
+g = greeks(spec)
+tree_px = leisen_reimer(spec, 101)
+mc_px = european(spec, McConfig(
+    paths=100000,
+    seed=1,
+    vr=VarianceReduction.ANTITHETIC | VarianceReduction.CONTROL_VARIATE,
+))
 ```
 
 Every numerical call returns a `PricingResult` with `value`, `error_estimate`, and the
@@ -67,9 +74,9 @@ amount of work performed (steps or paths). Treat that error the way you would tr
 RK45 local truncation estimate: if it is not small enough, ask the adaptive driver for
 more work.
 
-```cpp
-auto refined = tree::adaptive(spec, {.abs_tol = 1e-6});
-auto mc_ok   = mc::european_adaptive(spec, {.stderr_tol = 1e-3});
+```python
+refined = adaptive(spec, AdaptiveTreeConfig(abs_tol=1e-6))
+mc_ok = european_adaptive(spec, AdaptiveMcConfig(stderr_tol=1e-3))
 ```
 
 ## Why the error-control contract
@@ -79,7 +86,7 @@ Carlo estimate without a standard error are all unfinished numerical methods. `d
 makes the diagnostic part of the return type so it cannot be forgotten:
 
 - **Analytic identities** (put-call parity, round-trip implied vol) are tested to ~1 x 10^-12.
-- **Trees** expose \|P(N) − P(N/2)\| and can Richardson-extrapolate CRR’s O(1/N) term.
+- **Trees** expose \|P(N) − P(N/2)\| and can Richardson-extrapolate CRR's O(1/N) term.
 - **Leisen-Reimer** is the high-order lattice: it matches Φ(d₁), Φ(d₂) so a European
   with a few hundred steps sits well inside a basis point of Black-Scholes.
 - **Monte Carlo** uses Welford moments, exact GBM sampling (no Euler bias on vanillas),
@@ -101,7 +108,7 @@ Formulas and references: [docs/methods.md](docs/methods.md).
 
 European call, S = K = 100, r = 5%, σ = 20%, T = 1. Black-Scholes = **10.45058357**.
 
-Absolute error versus N (`./build/examples/convergence`):
+Absolute error versus N (`python examples/convergence.py`):
 
 | N | CRR | Jarrow-Rudd | Leisen-Reimer | Trinomial |
 | ---: | ---: | ---: | ---: | ---: |
@@ -123,7 +130,8 @@ American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 
 Early-exercise premium ≈ **0.642**.
 
-Variance reduction, 50,000 European paths, seed 42 (`./build/examples/variance_reduction`):
+Variance reduction, 50,000 European paths, seed 42 (`python examples/variance_reduction.py`).
+Monte Carlo uses the same mt19937_64 + Box-Muller stream as the original C++ library:
 
 | Method | Price | Std. err. | Variance ratio |
 | --- | ---: | ---: | ---: |
@@ -144,9 +152,8 @@ Arithmetic Asian, 50 fixings, 20,000 paths. Geometric closed form = 5.641058. Th
 ## Project layout
 
 ```
-include/derivkit/   public headers
-src/                library implementation
-tests/              CTest binaries, no external test framework
+src/derivkit/       library
+tests/              pytest suite
 examples/           comparison, American put, VR study, convergence, implied vol,
                     Groww NIFTY chain
 examples/data/      bundled Groww-shaped NIFTY fixture
@@ -155,7 +162,7 @@ docs/methods.md     formulas and references
 
 ## Live NIFTY chain via Groww
 
-`examples/groww_chain` pulls an option chain from the [Groww Trading API](https://groww.in/trade-api/docs/curl/live-data)
+`examples/groww_chain.py` pulls an option chain from the [Groww Trading API](https://groww.in/trade-api/docs/curl/live-data)
 and prices nearby strikes with **Black-76**. Vol time is NSE business days / 252;
 discounting is ACT/365.25. When the cash market is shut (weekend, holiday, or after
 15:30 IST) the as-of timestamp snaps to the previous session close so Saturday does
@@ -168,22 +175,22 @@ and/or `--div` to skip that fit and use a carry override instead.
 
 ```bash
 # Offline demo (no account) - bundled NIFTY fixture
-./build/examples/groww_chain
+python examples/groww_chain.py --fixture examples/data/nifty_chain.json
 
 # Live NIFTY, nearest expiry (token from Groww -> Settings -> Trading APIs)
 export GROWW_ACCESS_TOKEN=...
-./build/examples/groww_chain NIFTY
+python examples/groww_chain.py NIFTY
 
 # Other underlyings, specific expiry, valuation date
-./build/examples/groww_chain BANKNIFTY --expiry 2026-09-29
-./build/examples/groww_chain NIFTY --as-of 2026-09-11
-./build/examples/groww_chain RELIANCE --strikes 4 --mc
-./build/examples/groww_chain NIFTY --rate 0.065 --div 0.012
+python examples/groww_chain.py BANKNIFTY --expiry 2026-09-29
+python examples/groww_chain.py NIFTY --as-of 2026-09-11
+python examples/groww_chain.py RELIANCE --strikes 4 --mc
+python examples/groww_chain.py NIFTY --rate 0.065 --div 0.012
 ```
 
 Copy `.env.example` and fill `GROWW_ACCESS_TOKEN`, or use `GROWW_API_KEY` +
-`GROWW_API_SECRET` / `GROWW_TOTP`. Live mode needs `curl` on `PATH`. Without
-credentials the example still runs against `examples/data/nifty_chain.json`.
+`GROWW_API_SECRET` / `GROWW_TOTP`. Without credentials the example still runs
+against `examples/data/nifty_chain.json`.
 
 Columns: **LTP** is Groww's market, **BS** is Black-76 using Groww's IV and the
 implied (or override) forward, **Rs** is `BS - LTP` in rupees, **iv%** is derivkit's
@@ -192,28 +199,21 @@ implied vol from LTP, **ivG%** is Groww, **volpts** is `100 * (iv_from_LTP - Gro
 ## Install
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-cmake --build build --parallel
-cmake --install build
+pip install -e .
 ```
 
-Downstream:
-
-```cmake
-find_package(derivkit REQUIRED)
-target_link_libraries(my_app PRIVATE derivkit::derivkit)
+```python
+from derivkit import VanillaSpec, OptionType, price
 ```
 
-## Tests and sanitizers
+## Tests
 
 ```bash
-cmake -S . -B build -DDERIVKIT_WERROR=ON -DDERIVKIT_SANITIZE=ON
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+pip install -e ".[dev]"
+pytest
 ```
 
-CI builds with both GCC and Clang, treats warnings as errors, and reruns the suite
-under ASan/UBSan.
+CI runs pytest on Python 3.11 and 3.12.
 
 ## License
 

@@ -1,5 +1,4 @@
 * text=auto eol=lf
-*.hpp text
-*.cpp text
+*.py text
 *.md text
 *.yml text

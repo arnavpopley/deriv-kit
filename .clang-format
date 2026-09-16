@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: MIT
-BasedOnStyle: Google
-IndentWidth: 4
-ColumnLimit: 100
-AccessModifierOffset: -4
-AllowShortFunctionsOnASingleLine: Inline
-DerivePointerAlignment: false
-PointerAlignment: Left

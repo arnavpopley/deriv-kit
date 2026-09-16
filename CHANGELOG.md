@@ -2,7 +2,13 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 2.0.0 - 2026-09-16
+
+Port the library to Python 3.11. Numerical engines, tests, and the Groww
+example keep the same formulas, residuals, and NSE clock as 1.x. Monte Carlo
+uses the original mt19937_64 + Box-Muller stream.
+
+## Unreleased (folded into 2.0.0)
 
 - Black-76 on a forward, with an identity to Black-Scholes-Merton when
   `F = S e^{(r-q)T}` and `DF = e^{-rT}`
@@ -14,7 +20,7 @@ All notable changes to this project are documented here.
 
 ## 1.0.0 - 2026-09-12
 
-First public release.
+First public release (C++20).
 
 - Black-Scholes-Merton European vanillas, full first- and second-order Greeks
 - Discrete geometric-average Asian (Kemna-Vorst) closed form
@@ -25,6 +31,4 @@ First public release.
 - Richardson extrapolation and adaptive step doubling
 - Monte Carlo with exact GBM sampling, antithetic variates, and control variates
 - Arithmetic Asian Monte Carlo controlled by the geometric Asian
-- Groww Trading API example: live NIFTY / BANKNIFTY / equity option chains priced
-  with Black-Scholes, Leisen-Reimer, and optional Monte Carlo, with a bundled
-  fixture when no API token is set
+- Groww Trading API example: live NIFTY / BANKNIFTY / equity option chains

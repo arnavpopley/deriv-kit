@@ -2,31 +2,21 @@
 
 This is a small numerical library. Changes that land should preserve the
 error-control contract: every numerical engine reports a diagnostic
-(`PricingResult::error_estimate`) that a caller can actually check.
+(`PricingResult.error_estimate`) that a caller can actually check.
 
 ## Build the tests
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DDERIVKIT_WERROR=ON
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
-
-With sanitizers:
-
-```bash
-cmake -S . -B build -DDERIVKIT_SANITIZE=ON -DDERIVKIT_WERROR=ON
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
 ```
 
 ## Style
 
-- C++20, four-space indent, 100-column wrap (see `.clang-format`).
-- No `using namespace` in headers.
-- `[[nodiscard]]` on pure numeric functions.
-- Throw `std::invalid_argument` for contract violations; do not return NaN
-  as a silent failure.
+- Python 3.11+, four-space indent, 100-column wrap.
+- Raise `ValueError` for contract violations; do not return NaN as a silent failure.
 - New engines go through `PricingResult` so examples and tests stay uniform.
 
 ## Numerical changes
