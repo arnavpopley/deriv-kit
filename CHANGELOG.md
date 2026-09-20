@@ -4,9 +4,9 @@ All notable changes to this project are documented here.
 
 ## 2.0.0 - 2026-09-16
 
-Port the library to Python 3.11. Numerical engines, tests, and the Groww
-example keep the same formulas, residuals, and NSE clock as 1.x. Monte Carlo
-uses the original mt19937_64 + Box-Muller stream.
+Python 3.11 package. Numerical engines, tests, and the Groww example keep
+the same formulas, residuals, and NSE clock as 1.x. Monte Carlo uses
+mt19937_64 + Box-Muller.
 
 ## Unreleased (folded into 2.0.0)
 
@@ -20,7 +20,7 @@ uses the original mt19937_64 + Box-Muller stream.
 
 ## 1.0.0 - 2026-09-12
 
-First public release (C++20).
+First public release.
 
 - Black-Scholes-Merton European vanillas, full first- and second-order Greeks
 - Discrete geometric-average Asian (Kemna-Vorst) closed form

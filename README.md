@@ -131,7 +131,7 @@ American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 Early-exercise premium ≈ **0.642**.
 
 Variance reduction, 50,000 European paths, seed 42 (`python examples/variance_reduction.py`).
-Monte Carlo uses the same mt19937_64 + Box-Muller stream as the original C++ library:
+Monte Carlo draws N(0,1) from mt19937_64 + Box-Muller:
 
 | Method | Price | Std. err. | Variance ratio |
 | --- | ---: | ---: | ---: |
