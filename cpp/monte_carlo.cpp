@@ -6,7 +6,6 @@
 #include <cstddef>
 #include <span>
 #include <stdexcept>
-#include <vector>
 
 namespace derivkit::mc {
 namespace {  // unnamed namespace: these helpers are visible in this file only
@@ -84,25 +83,44 @@ void EuropeanSampler::advance(std::uint64_t paths) {
     acc_ = acc;
 }
 
-WelfordPair asian_moments(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t paths,
-                          std::uint64_t seed, bool antithetic) {
+AsianSampler::AsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t seed,
+                           bool antithetic)
+    : spot_(spec.spot),
+      strike_(spec.strike),
+      drift_(0.0),
+      vol_dt_(0.0),
+      df_(std::exp(-spec.rate * spec.time)),
+      nfix_(static_cast<double>(steps)),
+      is_call_(spec.type == OptionType::Call),
+      antithetic_(antithetic),
+      z_(steps),  // the one heap allocation: `steps` doubles, reused by every path
+      rng_(seed) {
     if (steps == 0) {
+        // pybind11 turns this C++ exception into a Python ValueError.
         throw std::invalid_argument("asian steps must be positive");
     }
+    const double dt = spec.time / nfix_;
+    drift_ = (spec.rate - spec.dividend - 0.5 * spec.vol * spec.vol) * dt;
+    vol_dt_ = spec.vol * std::sqrt(dt);
+}
 
-    const double spot = spec.spot;
-    const double strike = spec.strike;
-    const bool is_call = spec.type == OptionType::Call;
-    const double nfix = static_cast<double>(steps);
-    const double dt = spec.time / nfix;
-    const double drift = (spec.rate - spec.dividend - 0.5 * spec.vol * spec.vol) * dt;
-    const double vol_dt = spec.vol * std::sqrt(dt);
-    const double df = std::exp(-spec.rate * spec.time);
+void AsianSampler::advance(std::uint64_t paths) {
+    // Locals for the same reason as in EuropeanSampler::advance: the compiler can keep
+    // them in registers across the exp and log calls.
+    const double spot = spot_;
+    const double strike = strike_;
+    const double drift = drift_;
+    const double vol_dt = vol_dt_;
+    const double df = df_;
+    const double nfix = nfix_;
+    const bool is_call = is_call_;
+    const bool antithetic = antithetic_;
+    NormalRng rng = rng_;
+    WelfordPair acc = acc_;
 
-    // The one heap allocation of the whole call: a buffer for one path's draws. Its size
-    // is only known at run time, so it cannot be a std::array. It is allocated here, once,
-    // and reused by every path; nothing inside the path loop allocates.
-    std::vector<double> z(steps);
+    // A span is a pointer and a length: a view of the member buffer, not a copy of it.
+    // Nothing inside the path loop allocates.
+    const std::span<double> z(z_);
 
     struct Sample {
         double x;  // discounted geometric-average payoff
@@ -125,10 +143,8 @@ WelfordPair asian_moments(const VanillaSpec& spec, std::uint32_t steps, std::uin
                 df * payoff(sum / nfix, strike, is_call)};
     };
 
-    NormalRng rng(seed);
-    WelfordPair acc;
     for (std::uint64_t p = 0; p < paths; ++p) {
-        rng.fill(z);  // a std::vector converts to a std::span automatically
+        rng.fill(z);
         const Sample a = walk(1.0);
         if (!antithetic) {
             acc.add(a.x, a.y);
@@ -137,7 +153,9 @@ WelfordPair asian_moments(const VanillaSpec& spec, std::uint32_t steps, std::uin
             acc.add(0.5 * (a.x + b.x), 0.5 * (a.y + b.y));
         }
     }
-    return acc;
+
+    rng_ = rng;
+    acc_ = acc;
 }
 
 }  // namespace derivkit::mc

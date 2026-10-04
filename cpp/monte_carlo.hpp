@@ -4,6 +4,7 @@
 #include "welford.hpp"
 
 #include <cstdint>
+#include <vector>
 
 // The C++ Monte Carlo kernel. It does one job: simulate paths and accumulate moments.
 // Input validation, the closed-form control mean and the control-variate finish stay in
@@ -56,9 +57,35 @@ private:
 
 /// Arithmetic-average Asian with `steps` fixings. x is the discounted geometric-average
 /// payoff (the control), y the discounted arithmetic-average payoff.
-/// Throws std::invalid_argument if `steps` is zero.
-[[nodiscard]] WelfordPair asian_moments(const VanillaSpec& spec, std::uint32_t steps,
-                                        std::uint64_t paths, std::uint64_t seed,
-                                        bool antithetic);
+///
+/// Like EuropeanSampler it keeps its generator and moments between calls, so `advance`
+/// can be called in slices and the result is the same as one big call. Not thread-safe.
+class AsianSampler {
+public:
+    /// Throws std::invalid_argument if `steps` is zero.
+    AsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t seed,
+                 bool antithetic);
+
+    /// Simulate `paths` more paths. With antithetic on, each path is a +Z / -Z pair.
+    void advance(std::uint64_t paths);
+
+    [[nodiscard]] const WelfordPair& moments() const noexcept { return acc_; }
+
+private:
+    double spot_;
+    double strike_;
+    double drift_;    // (r - q - vol^2/2) dt
+    double vol_dt_;   // vol sqrt(dt)
+    double df_;       // exp(-r T)
+    double nfix_;     // number of fixings, as a double
+    bool is_call_;
+    bool antithetic_;
+    // One path's draws. The number of fixings is only known at run time, so this cannot
+    // be a std::array. It is the one heap allocation of the sampler: made once, in the
+    // constructor, and reused by every path.
+    std::vector<double> z_;
+    NormalRng rng_;
+    WelfordPair acc_;
+};
 
 }  // namespace derivkit::mc

@@ -5,7 +5,7 @@
 // `derivkit._mc_cpp_ext`. The Python side of the boundary is src/derivkit/_mc_cpp.py.
 //
 // Only plain numbers and booleans cross the boundary. No Python object is kept alive by
-// C++ and no C++ pointer is handed to Python except the sampler, which Python owns.
+// C++ and no C++ pointer is handed to Python except the samplers, which Python owns.
 #include "monte_carlo.hpp"
 
 #include <pybind11/pybind11.h>
@@ -83,19 +83,24 @@ PYBIND11_MODULE(_mc_cpp_ext, m) {
             "moments", [](const mc::EuropeanSampler& s) { return to_tuple(s.moments()); },
             "Return (n, mean_x, mean_y, m2_x, m2_y, c_xy).");
 
-    m.def(
-        "asian_moments",
-        [](double spot, double strike, double rate, double dividend, double vol, double time,
-           bool is_call, std::uint32_t steps, std::uint64_t paths, std::uint64_t seed,
-           bool antithetic) {
-            return to_tuple(mc::asian_moments(
-                make_spec(spot, strike, rate, dividend, vol, time, is_call), steps, paths, seed,
-                antithetic));
-        },
-        py::arg("spot"), py::arg("strike"), py::arg("rate"), py::arg("dividend"), py::arg("vol"),
-        py::arg("time"), py::arg("is_call"), py::arg("steps"), py::arg("paths"), py::arg("seed"),
-        py::arg("antithetic"), py::call_guard<py::gil_scoped_release>(),
-        "Arithmetic Asian moments: (n, mean_x, mean_y, m2_x, m2_y, c_xy).");
+    py::class_<mc::AsianSampler>(m, "AsianSampler")
+        .def(py::init([](double spot, double strike, double rate, double dividend, double vol,
+                         double time, bool is_call, std::uint32_t steps, std::uint64_t seed,
+                         bool antithetic) {
+                 // If the constructor throws std::invalid_argument, pybind11 catches it
+                 // and raises ValueError in Python.
+                 return mc::AsianSampler(
+                     make_spec(spot, strike, rate, dividend, vol, time, is_call), steps, seed,
+                     antithetic);
+             }),
+             py::arg("spot"), py::arg("strike"), py::arg("rate"), py::arg("dividend"),
+             py::arg("vol"), py::arg("time"), py::arg("is_call"), py::arg("steps"),
+             py::arg("seed"), py::arg("antithetic"))
+        .def("advance", &mc::AsianSampler::advance, py::arg("paths"),
+             py::call_guard<py::gil_scoped_release>(), "Simulate `paths` more paths.")
+        .def(
+            "moments", [](const mc::AsianSampler& s) { return to_tuple(s.moments()); },
+            "Return (n, mean_x, mean_y, m2_x, m2_y, c_xy).");
 
     m.def(
         "build_info",

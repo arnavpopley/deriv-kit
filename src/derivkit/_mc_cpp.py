@@ -10,13 +10,30 @@ the C++ kernel looks exactly like the other two to `monte_carlo`.
 
 from __future__ import annotations
 
-from derivkit import _mc_cpp_ext as _ext
+import operator
+
+# Imported by its full name so that a missing extension raises ModuleNotFoundError naming
+# this module, which is how `backends` tells "not built" from "built but broken".
+import derivkit._mc_cpp_ext as _ext
 from derivkit._moments import WelfordPair
+from derivkit.rng import _MASK64  # the Python generator reduces seeds mod 2^64; so do we
 from derivkit.types import OptionType, VanillaSpec
 
-_MASK64 = 0xFFFFFFFFFFFFFFFF  # the Python generator reduces seeds mod 2^64; do the same here
+# Normal draws per call into C++. While C++ runs, Python cannot deliver Ctrl-C, so a long
+# simulation is run as a series of calls of a few hundredths of a second each. The samplers
+# continue their stream from call to call, so slicing does not change the result.
+_SLICE = 1 << 22
 
 build_info = _ext.build_info
+
+
+def _advance(sampler, paths: int, draws_per_path: int = 1) -> None:
+    remaining = operator.index(paths)  # same TypeError as range() for a non-integer
+    step = max(1, _SLICE // draws_per_path)
+    while remaining > 0:
+        take = min(step, remaining)
+        sampler.advance(take)
+        remaining -= take
 
 
 def _scalars(spec: VanillaSpec) -> tuple[float, float, float, float, float, float, bool]:
@@ -38,7 +55,7 @@ class EuropeanSampler:
         self._impl = _ext.EuropeanSampler(*_scalars(spec), seed & _MASK64, antithetic)
 
     def advance(self, paths: int) -> None:
-        self._impl.advance(paths)
+        _advance(self._impl, paths)
 
     def moments(self) -> WelfordPair:
         return WelfordPair(*self._impl.moments())
@@ -48,6 +65,6 @@ def asian_moments(
     spec: VanillaSpec, steps: int, paths: int, seed: int, antithetic: bool
 ) -> WelfordPair:
     """Arithmetic-average payoff (y) paired with the geometric-average payoff (x)."""
-    return WelfordPair(
-        *_ext.asian_moments(*_scalars(spec), steps, paths, seed & _MASK64, antithetic)
-    )
+    sampler = _ext.AsianSampler(*_scalars(spec), steps, seed & _MASK64, antithetic)
+    _advance(sampler, paths, draws_per_path=steps)
+    return WelfordPair(*sampler.moments())
