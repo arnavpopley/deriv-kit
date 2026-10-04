@@ -101,3 +101,10 @@ def assert_matches(result, expected, rel: float) -> None:
 @pytest.mark.parametrize("case", list(GOLDEN), ids=lambda c: "-".join(c))
 def test_pure_python_matches_golden(case):
     assert_matches(run_case(*case), GOLDEN[case], REL)
+
+
+@pytest.mark.parametrize("case", list(GOLDEN), ids=lambda c: "-".join(c))
+def test_cpp_reproduces_the_pure_python_numbers(case, cpp_backend):
+    """The C++ kernel uses the same generator and the same arithmetic in the same order,
+    so it must land on the pure-Python numbers, not merely near them."""
+    assert_matches(run_case(*case, backend=cpp_backend), GOLDEN[case], REL)

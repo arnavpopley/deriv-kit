@@ -17,7 +17,22 @@ def require_backend(name: str) -> str:
     return name
 
 
+def usable_backends() -> tuple[str, ...]:
+    """Back ends to compare with each other: the available ones plus any that are required.
+
+    A required back end that is missing stays in the list, so using it raises instead of
+    quietly dropping out of the comparison.
+    """
+    available = available_backends()
+    return tuple(b for b in BACKENDS if b in available or b in REQUIRED)
+
+
 @pytest.fixture(params=BACKENDS)
 def backend(request) -> str:
     """Run the test once per Monte Carlo back end, skipping those not installed."""
     return require_backend(request.param)
+
+
+@pytest.fixture
+def cpp_backend() -> str:
+    return require_backend("cpp")
