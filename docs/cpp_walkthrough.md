@@ -37,7 +37,7 @@ cannot disagree about what a control variate is or how a result is named.
 | --- | --- |
 | `cpp/rng.hpp` | `NormalRng`: the random number generator. Header-only. |
 | `cpp/welford.hpp` | `WelfordPair`: the running statistics. Header-only. |
-| `cpp/monte_carlo.hpp` | Declarations: `VanillaSpec`, `EuropeanSampler`, `asian_moments`. |
+| `cpp/monte_carlo.hpp` | Declarations: `VanillaSpec`, `EuropeanSampler`, `AsianSampler`. |
 | `cpp/monte_carlo.cpp` | The two path loops. This is the code that runs hot. |
 | `cpp/bindings.cpp` | The pybind11 glue that makes the above importable from Python. |
 | `CMakeLists.txt` | Build recipe: compiler flags, where the built file goes. |
@@ -86,7 +86,8 @@ py::class_<mc::EuropeanSampler>(m, "EuropeanSampler")   // a Python type backed 
     .def(py::init(...))                                 // its constructor
     .def("advance", &mc::EuropeanSampler::advance, ...) // a method
     .def("moments", ...);
-m.def("asian_moments", ...);                            // a plain function
+py::class_<mc::AsianSampler>(m, "AsianSampler") ...     // the same again for Asians
+m.def("build_info", ...);                               // a plain function
 ```
 
 pybind11 is a header-only C++ library. For each `.def` it generates a small wrapper
@@ -107,7 +108,9 @@ Take `european(spec, McConfig(paths=1_000_000, seed=1), backend="cpp")`.
    heap and stores a pointer to it inside a new Python object.
 4. `sampler.advance(1_000_000)` goes through another wrapper. That wrapper releases
    Python's global interpreter lock (GIL), calls the C++ `advance`, and takes the lock
-   back when it returns. This is the only step that takes meaningful time.
+   back when it returns. This is the only step that takes meaningful time. For long
+   runs the adapter makes this call repeatedly, about four million draws at a time (see
+   "Ctrl-C" below).
 5. `sampler.moments()` returns a C++ `std::tuple` of six numbers. pybind11 converts it to
    a Python tuple, and `_mc_cpp` wraps that in a `WelfordPair`.
 6. `monte_carlo._finish_cv` computes the price and standard error from the six numbers.
@@ -115,18 +118,18 @@ Take `european(spec, McConfig(paths=1_000_000, seed=1), backend="cpp")`.
 
 Three things are worth noticing.
 
-**The boundary is crossed a fixed number of times per call, not once per path.** A
-crossing costs far more than one path, so a design that called C++ once per path would
-throw away most of the gain. An `advance(0)` call, which does nothing but cross the
-boundary and come back, takes about 240 ns on this machine, roughly the cost of ten simulated paths
-(measured with `timeit` on `sampler.advance(0)`).
+**The boundary is crossed once per few million paths, not once per path.** A crossing
+costs far more than one path, so a design that called C++ once per path would throw away
+most of the gain. An `advance(0)` call, which does nothing but cross the boundary and
+come back, takes [[CROSSING]] (measured with `timeit` on `sampler.advance(0)`).
 
 **Only plain numbers cross.** C++ never holds a reference to a Python object and Python
 never sees a raw C++ pointer other than the sampler it owns. That removes the usual
 sources of binding bugs: objects freed while still in use, and reference-count mistakes.
 
-**Errors cross too.** If C++ throws `std::invalid_argument` (the Asian kernel does this
-for zero steps), pybind11 catches it and raises `ValueError` in Python.
+**Errors cross too.** If C++ throws `std::invalid_argument` (the Asian sampler's
+constructor does this for zero steps), pybind11 catches it and raises `ValueError` in
+Python.
 
 ### Why release the GIL in single-threaded code?
 
@@ -138,6 +141,19 @@ threads (a UI, a server), they keep running during a long simulation instead of 
 The price is a rule: one sampler belongs to one call. With the lock released, two threads
 calling `advance` on the same sampler would corrupt it. The Python API never shares a
 sampler, so this cannot happen through `european(...)`.
+
+### Ctrl-C
+
+Python only notices Ctrl-C between its own instructions. While a C++ function is running,
+the interrupt waits. One C++ call for a billion paths would therefore ignore Ctrl-C for
+many seconds, and a mistyped path count would have to be killed from outside.
+
+So `_mc_cpp.py` does not make one call. It calls `advance` in slices of about four
+million normal draws, a few hundredths of a second each, and Python checks for Ctrl-C
+between slices. Because a sampler continues its random stream from one call to the next,
+the result is identical to a single call; a test runs the same pricing with 37-draw
+slices and compares. Both samplers are classes with an `advance` method for this reason:
+a function that ran a whole simulation in one go could not be sliced.
 
 ## 4. Memory: where it is allocated, and why the inner loop allocates nothing
 
@@ -174,10 +190,11 @@ The pieces that make this work:
   are never stored, so memory use does not grow with the number of paths. One billion
   paths use the same memory as one thousand.
 
-The Asian kernel has exactly one heap allocation: `std::vector<double> z(steps)`. The
-number of fixings is only known at run time, so it cannot be a `std::array`. It is
-created once, before the path loop, and every path reuses it. When the function returns,
-the vector's destructor frees the memory automatically. That pattern, where an object
+The Asian sampler has exactly one heap allocation: its `std::vector<double> z_`, sized to
+the number of fixings. That number is only known at run time, so it cannot be a
+`std::array`. The vector is created once, in the sampler's constructor, and every path
+reuses it. When the sampler is destroyed, the vector's destructor frees the memory
+automatically. That pattern, where an object
 owns a resource and releases it when it goes out of scope, is called RAII, and it is why
 this code contains no `delete` and cannot leak.
 
@@ -466,7 +483,8 @@ code such as Welford's update.
 **4. Where is memory allocated in the hot loop?**
 Nowhere. The sampler is allocated once on the heap when Python creates it. Inside
 `advance` the generator copy, the statistics and a 256-element `std::array` are on the
-stack. The Asian kernel has one `std::vector` allocated before the path loop and reused.
+stack. The Asian sampler has one `std::vector`, allocated in its constructor and reused
+by every path.
 
 **5. Why copy member variables into locals at the top of `advance`?**
 The compiler cannot see into `exp` or `log` and must assume they could modify anything
@@ -476,7 +494,8 @@ Locals whose address never escapes can stay in registers.
 **6. What happens when Python calls `sampler.advance(n)`?**
 pybind11's generated wrapper checks and converts `n` to `std::uint64_t`, releases the
 GIL, calls the C++ method on the object the Python wrapper points to, re-acquires the
-GIL and returns `None`. The boundary is crossed once per call, not once per path.
+GIL and returns `None`. The adapter calls it once per few million paths, never once per
+path, so the cost of crossing is negligible and Ctrl-C still gets through.
 
 **7. Why release the GIL if the code is single-threaded? Is the sampler thread-safe?**
 Releasing it lets other Python threads run during a long simulation; it does not speed

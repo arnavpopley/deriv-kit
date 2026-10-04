@@ -14,7 +14,10 @@ All notable changes to this project are documented here.
   side, with measured results in `benchmarks/RESULTS.md`
 - The pure-Python Monte Carlo loop computes its per-call constants once
   instead of once per path; results are unchanged
-- CI builds the extension with GCC and Clang and tests all three back ends
+- CI builds the extension with GCC and Clang and tests all three back ends, and builds
+  and installs a wheel
+- Fixed: `pip install .` and wheel builds failed because the NIFTY fixture was added to
+  the wheel twice
 
 ## 2.0.0 - 2026-09-16
 

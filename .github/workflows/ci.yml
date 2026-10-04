@@ -20,6 +20,15 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Test
         run: pytest
+      # An editable install does not exercise the wheel build, so do that separately.
+      - name: Build and install a wheel
+        run: |
+          pip wheel . -w dist --no-deps
+          pip uninstall -y derivkit
+          pip install dist/*.whl
+          cd "$RUNNER_TEMP"
+          python -c "import derivkit; print(derivkit.__file__, derivkit.available_backends())"
+          python -m derivkit compare --paths 1e4 --repeats 3
 
   # The job above proves the core works with no NumPy and no compiler. This one builds
   # the C++ extension with each compiler and requires all three back ends to be present,
