@@ -120,8 +120,9 @@ Three things are worth noticing.
 
 **The boundary is crossed once per few million paths, not once per path.** A crossing
 costs far more than one path, so a design that called C++ once per path would throw away
-most of the gain. An `advance(0)` call, which does nothing but cross the boundary and
-come back, takes [[CROSSING]] (measured with `timeit` on `sampler.advance(0)`).
+most of the gain. An `advance(0)` call, which does nothing but cross the boundary and come
+back, takes about 120 ns on this machine, roughly the cost of 10 simulated paths (measured
+with `timeit` on `sampler.advance(0)`).
 
 **Only plain numbers cross.** C++ never holds a reference to a Python object and Python
 never sees a raw C++ pointer other than the sampler it owns. That removes the usual
@@ -270,9 +271,9 @@ and that turns out to be the main story in section 7.
 ("contraction"). The fused result is slightly more accurate, but it is a different number
 in the last digit from what Python computes, because Python rounds after the multiply and
 again after the add. With contraction on, an early test build disagreed with Python in
-the 16th significant digit. Turning it off restored the exact match. It is not free: building
-`benchmarks/where_time_goes.cpp` both ways with Apple clang gave about 24.9 ns per path
-with contraction off and about 24.1 ns with it on, a cost of about 3%.
+the 16th significant digit. Turning it off restored the exact match. It is not free:
+building `benchmarks/where_time_goes.cpp` both ways with Apple clang gave about 12.9 ns
+per path with contraction off and about 12.4 ns with it on, a cost of about 4%.
 
 **No `-ffast-math`.** That flag lets the compiler assume floating-point arithmetic is
 associative and that NaN and infinity never occur. It can reorder sums, which changes
@@ -286,17 +287,17 @@ Short version, from [benchmarks/RESULTS.md](../benchmarks/RESULTS.md):
 
 | 10^7 paths, no variance reduction | python | numpy | cpp |
 | --- | ---: | ---: | ---: |
-| Run time, median (s) | 15.97 | 0.1174 | 0.2505 |
-| Paths per second | 0.63 M | 85.19 M | 39.91 M |
+| Run time, median (s) | 8.308 | 0.0603 | 0.1293 |
+| Paths per second | 1.20 M | 165.84 M | 77.31 M |
 | Price | 10.454013 | 10.455593 | 10.454013 |
 
 Across all three path counts and all four variance-reduction settings:
 
-- C++ runs the same paths 60.2 to 67.3 times faster than pure Python, and returns the
-  same price for the same seed.
-- C++ runs at 0.47 to 0.57 times the speed of NumPy. Put the other way round, NumPy is
-  about 1.8 to 2.1 times faster than C++.
-- NumPy is 109 to 137 times faster than pure Python.
+- C++ runs the same paths 59.8 to 68.5 times faster than pure Python, and returns the same
+  price for the same seed.
+- C++ runs at 0.47 to 0.58 times the speed of NumPy. Put the other way round, NumPy is
+  about 1.7 to 2.1 times faster than C++.
+- NumPy is 107 to 138 times faster than pure Python.
 
 So the honest summary is: **C++ beats pure Python by a wide margin, and loses to NumPy
 by about a factor of two.**
@@ -305,7 +306,7 @@ by about a factor of two.**
 
 These tables rebuild each kernel's loop one step at a time and report what each step
 adds. They come from two small programs in `benchmarks/`, run in the same session as
-RESULTS.md (so also on battery in Low Power Mode):
+RESULTS.md (battery, Low Power Mode off):
 
 ```bash
 cmake --build build --target where_time_goes && ./build/where_time_goes
@@ -314,35 +315,35 @@ python benchmarks/where_time_goes.py
 
 | C++ kernel, cost per path | ns |
 | --- | ---: |
-| mt19937_64 draw, converted to a uniform | 2.90 |
-| Box-Muller transform (log, sqrt, sin, cos) | 11.61 |
-| exp for the terminal price | 7.64 |
-| payoff and Welford update | 2.81 |
-| **whole kernel, one path** | **24.97** |
-| whole kernel, one antithetic pair | 30.06 |
-| not used: exp with log(S) inside the exponent | 2.14 |
+| mt19937_64 draw, converted to a uniform | 2.24 |
+| Box-Muller transform (log, sqrt, sin, cos) | 5.22 |
+| exp for the terminal price | 3.93 |
+| payoff and Welford update | 1.49 |
+| **whole kernel, one path** | **12.88** |
+| whole kernel, one antithetic pair | 15.48 |
+| not used: exp with log(S) inside the exponent | 1.15 |
 
 | NumPy kernel, cost per path | ns |
 | --- | ---: |
-| PCG64 normal draw (standard_normal) | 6.42 |
-| scale and shift (2 array passes) | 0.50 |
-| exp of the whole array | 2.73 |
-| payoff (2 array passes) | 0.80 |
-| chunk moments (2 means, 2 centrings, 3 dots) | 1.29 |
-| **whole kernel, one path** | **11.78** |
-| whole kernel, one antithetic pair | 15.99 |
+| PCG64 normal draw (standard_normal) | 3.25 |
+| scale and shift (2 array passes) | 0.25 |
+| exp of the whole array | 1.41 |
+| payoff (2 array passes) | 0.46 |
+| chunk moments (2 means, 2 centrings, 3 dots) | 0.67 |
+| **whole kernel, one path** | **6.07** |
+| whole kernel, one antithetic pair | 8.33 |
 
 | Pure-Python kernel, cost per path | ns |
 | --- | ---: |
-| an empty loop iteration, for scale | 12.71 |
-| mt19937_64 + Box-Muller normal draw | 1106.41 |
-| exp and payoff | 218.14 |
-| Welford update | 277.15 |
-| **whole kernel, one path** | **1601.69** |
-| whole kernel, one antithetic pair | 1824.76 |
+| an empty loop iteration, for scale | 6.95 |
+| mt19937_64 + Box-Muller normal draw | 572.07 |
+| exp and payoff | 116.93 |
+| Welford update | 135.30 |
+| **whole kernel, one path** | **824.29** |
+| whole kernel, one antithetic pair | 944.98 |
 
-These agree with RESULTS.md, where 10^7 paths take 0.2505 s in C++ (25.1 ns per path),
-0.1174 s in NumPy (11.7 ns) and 15.97 s in pure Python (1,597 ns).
+These agree with RESULTS.md, where 10^7 paths take 0.1293 s in C++ (12.9 ns per path),
+0.0603 s in NumPy (6.0 ns) and 8.308 s in pure Python (831 ns).
 
 ### Why C++ is so much faster than pure Python
 
@@ -354,10 +355,10 @@ the arithmetic.
 - In Python, the same expression makes the interpreter look up each variable, check the
   type of each operand, find the right multiply and add functions for those types, call
   them, and allocate a new float object for each result. An empty loop iteration alone
-  costs about half of what an entire C++ path costs.
+  costs about 7 ns; an entire C++ path costs about 13 ns.
 - The gap is widest in the generator. The Mersenne Twister is integer bit-twiddling, and
   the pure-Python engine implements it with Python's arbitrary-size integers. That one
-  step accounts for about two thirds of the pure-Python time.
+  step accounts for about 69% of the pure-Python time.
 
 ### Why C++ is not faster than NumPy
 
@@ -367,25 +368,26 @@ once per path. With 65,536 paths per chunk, that cost disappears. So this is com
 code against compiled code, and the winner is decided by what work each one does. The
 tables show two differences, and neither is about the language.
 
-1. **The normal draw.** The C++ kernel spends about 14.5 ns per normal: one Mersenne
-   Twister draw plus Box-Muller's `log`, `sqrt`, `sin` and `cos`. NumPy spends about
-   6.4 ns: its PCG64 generator feeds a ziggurat sampler, which needs no transcendental
-   function for the great majority of draws. This alone is more than half of the gap.
+1. **The normal draw.** The C++ kernel spends about 7.5 ns per normal: one Mersenne
+   Twister draw plus Box-Muller's `log`, `sqrt`, `sin` and `cos`. NumPy spends about 3.2
+   ns: its PCG64 generator feeds a ziggurat sampler, which needs no transcendental
+   function for the great majority of draws. This alone is about 62% of the gap.
 2. **The `exp` call.** The C++ kernel computes `S * exp(drift + vol_t * z)`, exactly as
    the pure-Python engine does. The argument of `exp` is near zero and changes sign from
    path to path. The NumPy kernel moves the constants inside: `exp(log(df * S) + drift +
-   vol_t * z)`, whose argument stays around 4.5. On this machine `exp` is about three and
-   a half times faster in the second form (the last line of the C++ table measures it).
-   A likely reason is that the library's `exp` takes a different branch depending on its
-   argument, and a branch that flips at random is one the CPU cannot predict. That cause
-   was not confirmed by profiling; the timing difference was measured.
+   vol_t * z)`, whose argument stays around 4.5. On this machine `exp` is about 3.4 times
+   faster in the second form (the last line of the C++ table measures it). A likely reason
+   is that the library's `exp` takes a different branch depending on its argument, and a
+   branch that flips at random is one the CPU cannot predict. That cause was not confirmed
+   by profiling; the timing difference was measured.
 
 Both advantages are available to C++ in principle. This kernel gives them up on purpose:
 it must reproduce the pure-Python engine bit for bit, and that engine uses the Mersenne
 Twister with Box-Muller and puts the spot outside the `exp`. The price of that guarantee
 is roughly a factor of two against NumPy.
 
-The remaining work, payoff plus statistics, costs about the same in both.
+The remaining work, payoff plus statistics, costs about 1.5 ns in C++ and about
+1.1 ns in NumPy.
 
 ### What this means for accuracy per second
 
@@ -397,23 +399,23 @@ Standard error reached in one second, from RESULTS.md:
 
 | Variance reduction | python | numpy | cpp |
 | --- | ---: | ---: | ---: |
-| None | 1.85 x 10^-2 | 1.59 x 10^-3 | 2.32 x 10^-3 |
-| Antithetic + control variate | 2.62 x 10^-3 | 2.45 x 10^-4 | 3.37 x 10^-4 |
+| None | 1.34 x 10^-2 | 1.14 x 10^-3 | 1.78 x 10^-3 |
+| Antithetic + control variate | 1.87 x 10^-3 | 1.81 x 10^-4 | 2.44 x 10^-4 |
 
 Three things follow.
 
 - **C++ against pure Python:** about 8 times less error in the same time.
-- **C++ against NumPy:** about 1.4 to 1.5 times more error in the same time.
-- **Variance reduction against no variance reduction:** about 6.5 to 7 times less error
-  in the same time, in every back end. That is nearly as much as rewriting the loop in
-  C++. Pure Python with both methods on (2.62 x 10^-3) is within 15% of C++ with
-  neither (2.32 x 10^-3).
+- **C++ against NumPy:** about 1.3 to 1.6 times more error in the same time.
+- **Variance reduction against no variance reduction:** about 6.3 to 7.3 times less error
+  in the same time, depending on the back end. That is nearly as much as rewriting the
+  loop in C++. Pure Python with both methods on reaches 1.87 x 10^-3; C++ with neither
+  reaches 1.78 x 10^-3.
 
-The control variate is free in running time: it reuses numbers the loop already has, and
-paths per second do not change. Antithetic sampling costs a second `exp` per path, which
-lowers paths per second by 12% in pure Python, 17% in C++ and 27% in NumPy. It roughly
-halves the standard error for the same number of paths, so it still wins clearly: in one
-second of C++, 1.27 x 10^-3 with it against 2.32 x 10^-3 without.
+The control variate costs almost nothing in running time: it reuses numbers the loop
+already has. Antithetic sampling costs a second `exp` per path, which lowers paths per
+second by 10% in pure Python, 17% in C++ and 27% in NumPy. It roughly halves the standard
+error for the same number of paths, so it still wins clearly: in one second of C++,
+9.24 x 10^-4 with it against 1.78 x 10^-3 without.
 
 ## 8. What I would change to go faster
 
@@ -421,19 +423,19 @@ In rough order of payoff. Only the items marked "measured" have numbers behind t
 this machine; the rest are standard techniques that were not built or timed here.
 
 1. **Move `log(S)` inside the `exp`.** Measured for that step alone: it drops from about
-   7.6 ns to about 2.1 ns. If the rest of the loop were unaffected, a path would go from
-   about 25 ns to about 19.5 ns; the whole kernel was not rebuilt and timed that way. It
+   3.9 ns to about 1.1 ns. If the rest of the loop were unaffected, a path would go from
+   about 12.9 ns to about 10.1 ns; the whole kernel was not rebuilt and timed that way. It
    is a one-line change. It costs bit-for-bit agreement with the pure-Python engine (the
    two would differ in the last few digits), which is why it was not made.
 2. **Replace Box-Muller with a ziggurat or inverse-CDF sampler on a cheaper generator**
    such as xoshiro256++ or PCG64. Measured only indirectly: NumPy's sampler of this kind
-   costs 6.4 ns per normal against 14.5 ns here. This gives up the shared stream with
+   costs 3.2 ns per normal against 7.5 ns here. This gives up the shared stream with
    Python, so the two back ends would agree statistically instead of exactly.
 3. **Compute the antithetic leg without a second `exp`.** The mirrored price is
    `S^2 exp(2 drift) / S_T`, one division instead of one `exp`. Not measured.
 4. **Replace Welford's per-sample update with block sums.** The update does two divisions
    per path. Summing a block of centred values and merging blocks, as the NumPy kernel
-   does, avoids them. The whole payoff-and-statistics step is under 3 ns, so the gain is
+   does, avoids them. The whole payoff-and-statistics step is about 1.5 ns, so the gain is
    small. Not measured.
 5. **SIMD.** Process 2, 4 or 8 paths per instruction. The arithmetic vectorises easily;
    `exp` and `log` need a vector maths library, which the "standard library only" rule
@@ -442,7 +444,7 @@ this machine; the rest are standard techniques that were not built or timed here
    thread needs its own generator stream, and the per-thread statistics combine with the
    same merge formula the NumPy kernel uses. Excluded here so the comparison stays
    single-threaded.
-7. **Allow fused multiply-add** by dropping `-ffp-contract=off`. Measured: about 3%
+7. **Allow fused multiply-add** by dropping `-ffp-contract=off`. Measured: about 4%
    (section 6). It costs bit-for-bit agreement with the pure-Python engine.
 8. **`-march=native`.** Lets the compiler use every instruction the build machine has.
    Not measured; the result would no longer be portable to other CPUs.

@@ -11,8 +11,8 @@ NumPy and C++.
 
 `derivkit` prices the same option with three interchangeable Monte Carlo back ends and
 measures them against each other. Everything below was measured on one machine (Apple M5,
-one thread, on battery in Low Power Mode). The full tables, the exact command and the
-environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+one thread, on battery with Low Power Mode off). The full tables, the exact command and
+the environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 
 ![Standard error reached in a fixed time budget, per back end and variance-reduction method](benchmarks/accuracy_vs_time.png)
 
@@ -21,37 +21,37 @@ vol = 20%, T = 1. Smaller is better.
 
 | Variance reduction | Time budget | python | numpy | cpp |
 | --- | --- | ---: | ---: | ---: |
-| No variance reduction | 0.1 s | 5.87 x 10^-2 | 5.02 x 10^-3 | 7.32 x 10^-3 |
-| No variance reduction | 1 s | 1.85 x 10^-2 | 1.59 x 10^-3 | 2.32 x 10^-3 |
-| No variance reduction | 10 s | 5.87 x 10^-3 | 5.02 x 10^-4 | 7.32 x 10^-4 |
-| Antithetic | 0.1 s | 3.10 x 10^-2 | 2.93 x 10^-3 | 4.03 x 10^-3 |
-| Antithetic | 1 s | 9.80 x 10^-3 | 9.25 x 10^-4 | 1.27 x 10^-3 |
-| Antithetic | 10 s | 3.10 x 10^-3 | 2.93 x 10^-4 | 4.03 x 10^-4 |
-| Control variate | 0.1 s | 2.25 x 10^-2 | 1.91 x 10^-3 | 2.79 x 10^-3 |
-| Control variate | 1 s | 7.09 x 10^-3 | 6.05 x 10^-4 | 8.82 x 10^-4 |
-| Control variate | 10 s | 2.24 x 10^-3 | 1.91 x 10^-4 | 2.79 x 10^-4 |
-| Antithetic + control variate | 0.1 s | 8.39 x 10^-3 | 7.74 x 10^-4 | 1.07 x 10^-3 |
-| Antithetic + control variate | 1 s | 2.62 x 10^-3 | 2.45 x 10^-4 | 3.37 x 10^-4 |
-| Antithetic + control variate | 10 s | 8.27 x 10^-4 | 7.74 x 10^-5 | 1.06 x 10^-4 |
+| No variance reduction | 0.1 s | 4.24 x 10^-2 | 3.62 x 10^-3 | 5.62 x 10^-3 |
+| No variance reduction | 1 s | 1.34 x 10^-2 | 1.14 x 10^-3 | 1.78 x 10^-3 |
+| No variance reduction | 10 s | 4.25 x 10^-3 | 3.62 x 10^-4 | 5.62 x 10^-4 |
+| Antithetic | 0.1 s | 2.27 x 10^-2 | 2.12 x 10^-3 | 2.92 x 10^-3 |
+| Antithetic | 1 s | 7.15 x 10^-3 | 6.70 x 10^-4 | 9.24 x 10^-4 |
+| Antithetic | 10 s | 2.26 x 10^-3 | 2.12 x 10^-4 | 2.92 x 10^-4 |
+| Control variate | 0.1 s | 1.60 x 10^-2 | 1.37 x 10^-3 | 2.02 x 10^-3 |
+| Control variate | 1 s | 5.04 x 10^-3 | 4.35 x 10^-4 | 6.38 x 10^-4 |
+| Control variate | 10 s | 1.59 x 10^-3 | 1.37 x 10^-4 | 2.02 x 10^-4 |
+| Antithetic + control variate | 0.1 s | 6.00 x 10^-3 | 5.73 x 10^-4 | 7.71 x 10^-4 |
+| Antithetic + control variate | 1 s | 1.87 x 10^-3 | 1.81 x 10^-4 | 2.44 x 10^-4 |
+| Antithetic + control variate | 10 s | 5.91 x 10^-4 | 5.73 x 10^-5 | 7.70 x 10^-5 |
 
 **Speed at 10^7 paths, no variance reduction.** Run time is the median of 7 runs after a
 warm-up.
 
 | Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| python | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 15.97 | 15.88 | 16.06 | 0.63 M | 1.00 |
-| numpy | 10,000,000 | 10.455593 | 4.66 x 10^-3 | 5.01 x 10^-3 | 0.1174 | 0.1165 | 0.1237 | 85.19 M | 1.00 |
-| cpp | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 0.2505 | 0.2501 | 0.2514 | 39.91 M | 1.00 |
+| python | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 8.308 | 8.27 | 8.376 | 1.20 M | 1.00 |
+| numpy | 10,000,000 | 10.455593 | 4.66 x 10^-3 | 5.01 x 10^-3 | 0.0603 | 0.06017 | 0.06084 | 165.84 M | 1.00 |
+| cpp | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 0.1293 | 0.1291 | 0.1337 | 77.31 M | 1.00 |
 
 What the numbers say:
 
-- **NumPy is the fastest back end.** It runs the same paths about 1.8 to 2.1 times faster
-  than the C++ back end (C++ is 0.47x to 0.57x NumPy across every setting measured).
-- **C++ is 60 to 67 times faster than pure Python**, and with the same seed it returns
-  the same price as pure Python, because the two share a random stream.
+- **NumPy is the fastest back end.** It runs the same paths about 1.7 to 2.1 times faster
+  than the C++ back end (C++ is 0.47x to 0.58x NumPy across every setting measured).
+- **C++ is 60 to 68 times faster than pure Python**, and with the same seed it returns the
+  same price as pure Python, because the two share a random stream.
 - **Variance reduction is worth about as much as the back end.** In one second, turning on
-  both methods cuts the standard error about 6.5 to 7 times in every back end, while
-  moving from pure Python to C++ cuts it about 8 times.
+  both methods cuts the standard error about 6.3 to 7.3 times, depending on the back end,
+  while moving from pure Python to C++ cuts it about 8 times.
 - **Why C++ does not beat NumPy here:** NumPy's inner loops are compiled code too, and it
   uses a cheaper normal sampler. [docs/cpp_walkthrough.md](docs/cpp_walkthrough.md)
   shows where the time goes in each back end and what would make the C++ faster.
@@ -101,7 +101,7 @@ raises `BackendUnavailableError` with the command that installs or builds it.
 python -m derivkit compare                      # quick: 10^5 paths, no variance reduction
 python -m derivkit compare --paths 1e6 --vr all --budgets 0.1 1
 
-# The full run behind benchmarks/RESULTS.md and the plot above (about 15 minutes):
+# The full run behind benchmarks/RESULTS.md and the plot above (8 to 15 minutes):
 python -m derivkit compare --paths 1e5 1e6 1e7 --vr all --budgets 0.1 1 10 \
     --report benchmarks/RESULTS.md --plot benchmarks/accuracy_vs_time.png
 ```
