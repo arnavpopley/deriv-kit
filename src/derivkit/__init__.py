@@ -1,5 +1,6 @@
 """derivkit: European and American pricing with explicit numerical error control."""
 
+from derivkit.backends import BACKENDS, BackendUnavailableError, available_backends
 from derivkit.black_scholes import (
     BlackSpec,
     Greeks,
@@ -47,6 +48,8 @@ __all__ = [
     "AdaptiveMcConfig",
     "AdaptiveTreeConfig",
     "AsianConfig",
+    "BACKENDS",
+    "BackendUnavailableError",
     "BlackSpec",
     "CallPutQuote",
     "ExerciseStyle",
@@ -64,6 +67,7 @@ __all__ = [
     "VarianceReduction",
     "adaptive",
     "arithmetic_asian",
+    "available_backends",
     "cox_ross_rubinstein",
     "d1_d2",
     "discount_factor",

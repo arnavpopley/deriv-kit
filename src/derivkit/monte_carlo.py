@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from derivkit import _mc_python
+from derivkit import backends as _backends
 from derivkit._moments import WelfordPair as _WelfordPair
 from derivkit.black_scholes import geometric_asian, price_result
 from derivkit.result import PricingResult
@@ -75,9 +75,17 @@ def _european_method_name(vr: VarianceReduction) -> str:
     return "mc-european"
 
 
-def european(spec: VanillaSpec, cfg: McConfig | None = None) -> PricingResult:
+def european(
+    spec: VanillaSpec, cfg: McConfig | None = None, *, backend: str = "python"
+) -> PricingResult:
+    """European vanilla by exact GBM sampling.
+
+    `backend` picks the kernel that runs the path loop: "python" (default, standard
+    library only), "numpy" or "cpp". See `derivkit.backends`.
+    """
     if cfg is None:
         cfg = McConfig()
+    kernel = _backends.kernel(backend)
     validate(spec)
     if cfg.paths < 2:
         raise ValueError("monte carlo requires at least 2 paths")
@@ -90,14 +98,18 @@ def european(spec: VanillaSpec, cfg: McConfig | None = None) -> PricingResult:
     anti = has_flag(cfg.vr, VarianceReduction.ANTITHETIC)
     cv = has_flag(cfg.vr, VarianceReduction.CONTROL_VARIATE)
     ex = _known_mean_st(spec)
-    sampler = _mc_python.EuropeanSampler(spec, cfg.seed, anti)
+    sampler = kernel.EuropeanSampler(spec, cfg.seed, anti)
     sampler.advance(cfg.paths)
     return _finish_cv(sampler.moments(), ex, _european_method_name(cfg.vr), cv)
 
 
-def european_adaptive(spec: VanillaSpec, cfg: AdaptiveMcConfig | None = None) -> PricingResult:
+def european_adaptive(
+    spec: VanillaSpec, cfg: AdaptiveMcConfig | None = None, *, backend: str = "python"
+) -> PricingResult:
+    """Draw batches until the standard error is below `stderr_tol` or `max_paths` is hit."""
     if cfg is None:
         cfg = AdaptiveMcConfig()
+    kernel = _backends.kernel(backend)
     validate(spec)
     if cfg.stderr_tol <= 0.0:
         raise ValueError("stderr_tol must be positive")
@@ -107,7 +119,7 @@ def european_adaptive(spec: VanillaSpec, cfg: AdaptiveMcConfig | None = None) ->
     anti = has_flag(cfg.base.vr, VarianceReduction.ANTITHETIC)
     cv = has_flag(cfg.base.vr, VarianceReduction.CONTROL_VARIATE)
     ex = _known_mean_st(spec)
-    sampler = _mc_python.EuropeanSampler(spec, cfg.base.seed, anti)
+    sampler = kernel.EuropeanSampler(spec, cfg.base.seed, anti)
     done = 0
     last = PricingResult()
     while done < cfg.max_paths:
@@ -126,9 +138,13 @@ def european_adaptive(spec: VanillaSpec, cfg: AdaptiveMcConfig | None = None) ->
     return last
 
 
-def arithmetic_asian(spec: VanillaSpec, cfg: AsianConfig | None = None) -> PricingResult:
+def arithmetic_asian(
+    spec: VanillaSpec, cfg: AsianConfig | None = None, *, backend: str = "python"
+) -> PricingResult:
+    """Arithmetic-average Asian; the control variate is the geometric-average Asian."""
     if cfg is None:
         cfg = AsianConfig()
+    kernel = _backends.kernel(backend)
     validate(spec)
     if cfg.mc.paths < 2:
         raise ValueError("monte carlo requires at least 2 paths")
@@ -138,7 +154,7 @@ def arithmetic_asian(spec: VanillaSpec, cfg: AsianConfig | None = None) -> Prici
     anti = has_flag(cfg.mc.vr, VarianceReduction.ANTITHETIC)
     cv = has_flag(cfg.mc.vr, VarianceReduction.CONTROL_VARIATE)
     ex = geometric_asian(spec, cfg.steps)
-    acc = _mc_python.asian_moments(spec, cfg.steps, cfg.mc.paths, cfg.mc.seed, anti)
+    acc = kernel.asian_moments(spec, cfg.steps, cfg.mc.paths, cfg.mc.seed, anti)
 
     if anti and cv:
         name = "mc-asian-antithetic-cv"
