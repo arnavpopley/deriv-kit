@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## Unreleased
+
+- Monte Carlo back ends: `european`, `european_adaptive` and
+  `arithmetic_asian` take `backend="python"` (default), `"numpy"` or `"cpp"`
+- NumPy-vectorised back end (optional dependency)
+- C++20 back end behind a pybind11 extension, built with CMake (optional);
+  reproduces the pure-Python results for the same seed
+- `derivkit.compare`, `derivkit.accuracy_per_second` and
+  `python -m derivkit compare`: accuracy and speed of the back ends side by
+  side, with measured results in `benchmarks/RESULTS.md`
+- The pure-Python Monte Carlo loop computes its per-call constants once
+  instead of once per path; results are unchanged
+- CI builds the extension with GCC and Clang and tests all three back ends
+
 ## 2.0.0 - 2026-09-16
 
 Python 3.11 package. Numerical engines, tests, and the Groww example keep

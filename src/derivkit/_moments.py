@@ -42,8 +42,8 @@ class WelfordPair:
     ) -> None:
         """Fold in a batch summarised by its own count, means and centred sums.
 
-        The pairwise form of Welford's update (Chan, Golub and LeVeque, 1979): exact in
-        real arithmetic and free of the cancellation in sum(x^2) - n * mean^2.
+        The pairwise form of Welford's update (Chan, Golub and LeVeque): exact in real
+        arithmetic and free of the cancellation in sum(x^2) - n * mean^2.
         """
         if n == 0:
             return

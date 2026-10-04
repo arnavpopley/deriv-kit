@@ -7,7 +7,8 @@ kernels: results agree statistically, not digit for digit.
 
 Paths are processed in chunks, so memory stays bounded for any path count and the work
 arrays stay in cache. The only BLAS routine used is `dot` (three inner products per
-chunk); `derivkit.comparison` pins BLAS to one thread before timing anything.
+chunk). `derivkit.comparison` asks BLAS for one thread before timing and reports CPU time
+over wall time, so extra threads would show up in the results.
 """
 
 from __future__ import annotations

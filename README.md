@@ -1,14 +1,128 @@
 # derivkit
 
-Python toolkit for pricing derivative contracts with **explicit numerical error control**.
+Python toolkit for pricing derivative contracts with **explicit numerical error control**,
+and a built-in comparison of three interchangeable Monte Carlo back ends: pure Python,
+NumPy and C++.
+
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## Back-end comparison
+
+`derivkit` prices the same option with three interchangeable Monte Carlo back ends and
+measures them against each other. Everything below was measured on one machine (Apple M5,
+one thread, on battery in Low Power Mode). The full tables, the exact command and the
+environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+
+![Standard error reached in a fixed time budget, per back end and variance-reduction method](benchmarks/accuracy_vs_time.png)
+
+**Standard error reached in a fixed time.** European call, S = K = 100, r = 5%, q = 0,
+vol = 20%, T = 1. Smaller is better.
+
+| Variance reduction | Time budget | python | numpy | cpp |
+| --- | --- | ---: | ---: | ---: |
+| No variance reduction | 0.1 s | 5.87 x 10^-2 | 5.02 x 10^-3 | 7.32 x 10^-3 |
+| No variance reduction | 1 s | 1.85 x 10^-2 | 1.59 x 10^-3 | 2.32 x 10^-3 |
+| No variance reduction | 10 s | 5.87 x 10^-3 | 5.02 x 10^-4 | 7.32 x 10^-4 |
+| Antithetic | 0.1 s | 3.10 x 10^-2 | 2.93 x 10^-3 | 4.03 x 10^-3 |
+| Antithetic | 1 s | 9.80 x 10^-3 | 9.25 x 10^-4 | 1.27 x 10^-3 |
+| Antithetic | 10 s | 3.10 x 10^-3 | 2.93 x 10^-4 | 4.03 x 10^-4 |
+| Control variate | 0.1 s | 2.25 x 10^-2 | 1.91 x 10^-3 | 2.79 x 10^-3 |
+| Control variate | 1 s | 7.09 x 10^-3 | 6.05 x 10^-4 | 8.82 x 10^-4 |
+| Control variate | 10 s | 2.24 x 10^-3 | 1.91 x 10^-4 | 2.79 x 10^-4 |
+| Antithetic + control variate | 0.1 s | 8.39 x 10^-3 | 7.74 x 10^-4 | 1.07 x 10^-3 |
+| Antithetic + control variate | 1 s | 2.62 x 10^-3 | 2.45 x 10^-4 | 3.37 x 10^-4 |
+| Antithetic + control variate | 10 s | 8.27 x 10^-4 | 7.74 x 10^-5 | 1.06 x 10^-4 |
+
+**Speed at 10^7 paths, no variance reduction.** Run time is the median of 7 runs after a
+warm-up.
+
+| Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| python | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 15.97 | 15.88 | 16.06 | 0.63 M | 1.00 |
+| numpy | 10,000,000 | 10.455593 | 4.66 x 10^-3 | 5.01 x 10^-3 | 0.1174 | 0.1165 | 0.1237 | 85.19 M | 1.00 |
+| cpp | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 0.2505 | 0.2501 | 0.2514 | 39.91 M | 1.00 |
+
+What the numbers say:
+
+- **NumPy is the fastest back end.** It runs the same paths about 1.8 to 2.1 times faster
+  than the C++ back end (C++ is 0.47x to 0.57x NumPy across every setting measured).
+- **C++ is 60 to 67 times faster than pure Python**, and with the same seed it returns
+  the same price as pure Python, because the two share a random stream.
+- **Variance reduction is worth about as much as the back end.** In one second, turning on
+  both methods cuts the standard error about 6.5 to 7 times in every back end, while
+  moving from pure Python to C++ cuts it about 8 times.
+- **Why C++ does not beat NumPy here:** NumPy's inner loops are compiled code too, and it
+  uses a cheaper normal sampler. [docs/cpp_walkthrough.md](docs/cpp_walkthrough.md)
+  shows where the time goes in each back end and what would make the C++ faster.
+
+### Build the C++ back end
+
+The C++ back end is optional. It needs a C++20 compiler (GCC or Clang), CMake 3.18 or
+newer, and pybind11.
+
+```bash
+source .venv/bin/activate            # the build uses the active Python
+pip install -e ".[dev,numpy,cpp]"
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+python -c "import derivkit; print(derivkit.available_backends())"
+# ('python', 'numpy', 'cpp')
+```
+
+The build is Release with `-O3 -ffp-contract=off`, single-threaded, and does not use
+`-ffast-math`. It places `_mc_cpp_ext.*.so` next to the Python sources, so it works with
+the editable install above. Wheels built from this repo contain the pure-Python package
+only. MSVC is not supported.
+
+### Pick a back end
+
+```python
+from derivkit import OptionType, VanillaSpec, VarianceReduction
+from derivkit.monte_carlo import McConfig, european
+
+spec = VanillaSpec(spot=100, strike=100, rate=0.05, vol=0.20, time=1.0, type=OptionType.CALL)
+cfg = McConfig(paths=1_000_000, seed=1, vr=VarianceReduction.ANTITHETIC)
+
+european(spec, cfg)                    # "python": the default, standard library only
+european(spec, cfg, backend="numpy")   # needs NumPy
+european(spec, cfg, backend="cpp")     # needs the built extension
+```
+
+`european`, `european_adaptive` and `arithmetic_asian` all take `backend`. The three back
+ends accept the same arguments and return the same `PricingResult`. With the same seed,
+`python` and `cpp` return the same price; `numpy` uses a different random stream, so its
+price differs within the standard error. Asking for a back end that is not installed
+raises `BackendUnavailableError` with the command that installs or builds it.
+
+### Rerun the comparison
+
+```bash
+python -m derivkit compare                      # quick: 10^5 paths, no variance reduction
+python -m derivkit compare --paths 1e6 --vr all --budgets 0.1 1
+
+# The full run behind benchmarks/RESULTS.md and the plot above (about 15 minutes):
+python -m derivkit compare --paths 1e5 1e6 1e7 --vr all --budgets 0.1 1 10 \
+    --report benchmarks/RESULTS.md --plot benchmarks/accuracy_vs_time.png
+```
+
+The same thing from Python:
+
+```python
+import derivkit
+print(derivkit.compare(spec, cfg).table())
+print(derivkit.accuracy_per_second(spec, budgets=(0.1, 1.0)).table())
+```
+
+The plot needs matplotlib (`pip install -e ".[bench]"`). On a laptop, plug in and turn
+off any low-power mode first; the report records the power state it ran under.
+
+## Error control
 
 The same discipline that makes a CR3BP integrator trustworthy - adaptive refinement, a
 computable error estimate, and tests that check orders of accuracy - is applied here to
 Black-Scholes analytics, binomial and trinomial trees, and Monte Carlo with antithetic
 and control variates.
-
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
@@ -22,10 +136,13 @@ and control variates.
 | Monte Carlo (exact GBM) | European, arithmetic Asian | sample standard error |
 | Antithetic + control variates | Europeans (control = S_T); Asians (control = geometric) | reduced standard error |
 | Adaptive drivers | trees double N; MC grows paths | user `abs_tol` / `stderr_tol` |
+| Monte Carlo back ends | the same pricers on pure Python, NumPy or C++ | `python -m derivkit compare` |
 | Groww option chain | live NIFTY / BANKNIFTY / stocks → derivkit prices | Black-76 vs LTP (Rs), IV vs Groww IV (vol points) |
 
-The core library has no third-party dependencies. Tests use pytest. Examples include a
-Groww option-chain client.
+The core library has no third-party dependencies: every engine, including Monte Carlo on
+its default `python` back end, runs on the standard library alone. The `numpy` and `cpp`
+Monte Carlo back ends are optional extras. Tests use pytest. Examples include a Groww
+option-chain client.
 
 ## Quick start
 
@@ -131,7 +248,7 @@ American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 Early-exercise premium ≈ **0.642**.
 
 Variance reduction, 50,000 European paths, seed 42 (`python examples/variance_reduction.py`).
-Monte Carlo draws N(0,1) from mt19937_64 + Box-Muller:
+The `python` and `cpp` back ends draw N(0,1) from mt19937_64 + Box-Muller:
 
 | Method | Price | Std. err. | Variance ratio |
 | --- | ---: | ---: | ---: |
@@ -153,11 +270,15 @@ Arithmetic Asian, 50 fixings, 20,000 paths. Geometric closed form = 5.641058. Th
 
 ```
 src/derivkit/       library
+cpp/                C++20 Monte Carlo kernel and its pybind11 binding
+CMakeLists.txt      builds the C++ extension
+benchmarks/         RESULTS.md, the plot, and where-the-time-goes profilers
 tests/              pytest suite
 examples/           comparison, American put, VR study, convergence, implied vol,
                     Groww NIFTY chain
 examples/data/      bundled Groww-shaped NIFTY fixture
 docs/methods.md     formulas and references
+docs/cpp_walkthrough.md   the C++ back end explained, with interview questions
 ```
 
 ## Live NIFTY chain via Groww
@@ -213,7 +334,13 @@ pip install -e ".[dev]"
 pytest
 ```
 
-CI runs pytest on Python 3.11 and 3.12.
+CI runs pytest on Python 3.11 and 3.12 with no optional dependencies, then builds the C++
+extension with GCC and with Clang and runs the suite again with all three back ends
+required:
+
+```bash
+DERIVKIT_REQUIRE_BACKENDS=numpy,cpp pytest
+```
 
 ## License
 
