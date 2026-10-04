@@ -12,6 +12,7 @@ from derivkit.comparison import (
     VR_METHODS,
     accuracy_per_second,
     compare,
+    environment,
     pin_to_one_thread,
     plot_accuracy_vs_time,
     require_matplotlib,
@@ -119,6 +120,8 @@ def _compare(args: argparse.Namespace, argv: list[str]) -> int:
 
     configs = [McConfig(paths=n, seed=args.seed, vr=vr) for vr in methods for n in args.paths]
     try:
+        # Recorded before measuring: commit, power state and versions as the run starts.
+        env = environment() if args.report else None
         fixed = compare(
             spec,
             configs,
@@ -150,7 +153,7 @@ def _compare(args: argparse.Namespace, argv: list[str]) -> int:
         _progress(f"wrote {args.plot}")
     if args.report:
         command = "python -m derivkit " + shlex.join(argv)
-        write_report(args.report, command, fixed, budget, args.plot)
+        write_report(args.report, command, fixed, budget, args.plot, env)
         _progress(f"wrote {args.report}")
     return 0
 

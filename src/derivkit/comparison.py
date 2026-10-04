@@ -415,8 +415,28 @@ def _cpu_model() -> str:
     return f"{model} ({os.cpu_count()} logical cores, {platform.machine()})"
 
 
+def _power_state() -> str:
+    """On a Mac laptop: mains or battery, and whether Low Power Mode is throttling the CPU."""
+    if sys.platform != "darwin":
+        return ""
+    source = _run(["pmset", "-g", "batt"]).splitlines()
+    settings = _run(["pmset", "-g"])
+    if not source or not settings:
+        return ""
+    supply = "battery" if "Battery Power" in source[0] else "mains"
+    low = "unknown"
+    for line in settings.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0] == "lowpowermode":
+            low = "on" if fields[1] == "1" else "off"
+    return f"{supply}, Low Power Mode {low}"
+
+
 def environment() -> dict[str, str]:
-    """What the numbers were measured on: hardware, OS, interpreter, libraries, compiler."""
+    """What the numbers were measured on: hardware, OS, interpreter, libraries, compiler.
+
+    Call it before measuring: the commit and power state are those at the time of the call.
+    """
     from derivkit import __version__
 
     info = {
@@ -446,6 +466,9 @@ def environment() -> dict[str, str]:
         )
     else:
         info["C++ compiler"] = "extension not built"
+    power = _power_state()
+    if power:
+        info["Power"] = power
     root = Path(__file__).resolve().parents[2]
     commit = _run(["git", "rev-parse", "--short", "HEAD"], cwd=root)
     if commit:
@@ -808,9 +831,15 @@ def write_report(
     fixed: CompareReport | None,
     budget: BudgetReport | None,
     plot: str | os.PathLike[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> None:
-    """Write the measurements, the exact command and the environment to a Markdown file."""
+    """Write the measurements, the exact command and the environment to a Markdown file.
+
+    Pass the `environment()` captured before the run as `env`; otherwise it is read now,
+    after the run has already written files into the working tree.
+    """
     path = Path(path)
+    env = environment() if env is None else env
     first = fixed or budget
     if first is None:
         raise ValueError("nothing to report")
@@ -820,8 +849,9 @@ def write_report(
         "shown. Nothing is estimated or carried over from another machine.",
         "## How this was produced",
         f"```bash\n{command}\n```",
-        f"Run finished {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')}.",
-        _md_table(("Item", "Value"), environment().items(), left=2),
+        f"Run finished {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M %Z')}. "
+        "The environment below was recorded when the run started.",
+        _md_table(("Item", "Value"), env.items(), left=2),
         "## What was priced",
         f"{describe(first.spec)}. Black-Scholes closed form = {first.reference:.12f}.",
         "## Method",

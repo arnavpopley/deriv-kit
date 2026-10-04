@@ -20,3 +20,33 @@ jobs:
         run: pip install -e ".[dev]"
       - name: Test
         run: pytest
+
+  # The job above proves the core works with no NumPy and no compiler. This one builds
+  # the C++ extension with each compiler and requires all three back ends to be present,
+  # so a back end that failed to build is a failure, not a skipped test.
+  backends:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev,numpy,cpp]"
+      - name: Build the C++ extension
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: |
+          $CXX --version
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DDERIVKIT_WERROR=ON
+          cmake --build build --parallel
+      - name: Test all back ends
+        env:
+          DERIVKIT_REQUIRE_BACKENDS: numpy,cpp
+        run: pytest
+      - name: Compare (smoke run)
+        run: python -m derivkit compare --paths 1e5 --vr all --repeats 3

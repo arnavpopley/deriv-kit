@@ -72,6 +72,15 @@ target_compile_definitions(_mc_cpp_ext PRIVATE
     DERIVKIT_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
 )
 
+# Optional profiling program (not built by default):
+#   cmake --build build --target where_time_goes && ./build/where_time_goes
+add_executable(where_time_goes EXCLUDE_FROM_ALL
+    benchmarks/where_time_goes.cpp
+    cpp/monte_carlo.cpp
+)
+target_include_directories(where_time_goes PRIVATE cpp)
+target_compile_options(where_time_goes PRIVATE ${DERIVKIT_KERNEL_FLAGS} ${DERIVKIT_WARNING_FLAGS})
+
 # Put the built module next to the Python sources so `import derivkit._mc_cpp_ext` works
 # for an editable install and for pytest without an install step.
 set_target_properties(_mc_cpp_ext PROPERTIES
