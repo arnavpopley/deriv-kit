@@ -111,7 +111,7 @@ def test_asian_agrees_across_backends(vr_name):
 def test_adaptive_stops_on_the_same_rule_in_every_backend(backend):
     spec = SPECS["call"]
     cfg = AdaptiveMcConfig(
-        base=McConfig(seed=SEED, vr=VarianceReduction.ANTITHETIC | VarianceReduction.CONTROL_VARIATE),
+        base=McConfig(seed=SEED, vr=VR["both"]),
         stderr_tol=4e-3,
         batch=7001,  # odd on purpose: a Box-Muller spare is carried across batches
         max_paths=400_000,

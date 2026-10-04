@@ -29,6 +29,7 @@ cpp = ["pybind11>=2.12"]
 bench = ["numpy>=1.26", "matplotlib>=3.8"]
 
 [project.scripts]
+derivkit = "derivkit.__main__:main"
 groww-chain = "derivkit.cli.groww_chain:main"
 vanilla-comparison = "derivkit.cli.vanilla_comparison:main"
 american-put = "derivkit.cli.american_put:main"

@@ -12,7 +12,7 @@ REQUIRED = {b for b in os.environ.get("DERIVKIT_REQUIRE_BACKENDS", "").split(","
 def require_backend(name: str) -> str:
     if name not in available_backends():
         if name in REQUIRED:
-            pytest.fail(f"back end {name!r} is required by DERIVKIT_REQUIRE_BACKENDS but unavailable")
+            pytest.fail(f"back end {name!r} is required by DERIVKIT_REQUIRE_BACKENDS but missing")
         pytest.skip(f"back end {name!r} is not available")
     return name
 

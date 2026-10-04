@@ -1,6 +1,7 @@
 """derivkit: European and American pricing with explicit numerical error control."""
 
 from derivkit.backends import BACKENDS, BackendUnavailableError, available_backends
+from derivkit.comparison import accuracy_per_second, compare
 from derivkit.black_scholes import (
     BlackSpec,
     Greeks,
@@ -91,5 +92,7 @@ __all__ = [
     "upper_bound",
     "validate",
     "validate_black",
+    "accuracy_per_second",
+    "compare",
     "__version__",
 ]
