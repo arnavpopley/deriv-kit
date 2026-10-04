@@ -6,7 +6,17 @@ from derivkit.backends import BACKENDS, available_backends
 
 # CI sets DERIVKIT_REQUIRE_BACKENDS=numpy,cpp on the job that builds the extension, so a
 # back end that silently failed to build shows up as a failure instead of a skip.
-REQUIRED = {b for b in os.environ.get("DERIVKIT_REQUIRE_BACKENDS", "").split(",") if b}
+REQUIRED = {
+    name.strip()
+    for name in os.environ.get("DERIVKIT_REQUIRE_BACKENDS", "").split(",")
+    if name.strip()
+}
+if REQUIRED - set(BACKENDS):
+    # A typo here would quietly turn "required" back into "skipped".
+    raise pytest.UsageError(
+        f"DERIVKIT_REQUIRE_BACKENDS names unknown back ends {sorted(REQUIRED - set(BACKENDS))}; "
+        f"choose from {', '.join(BACKENDS)}"
+    )
 
 
 def require_backend(name: str) -> str:

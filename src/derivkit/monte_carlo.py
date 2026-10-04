@@ -49,6 +49,20 @@ def _known_mean_st(spec: VanillaSpec) -> float:
     return spec.spot * discount_factor(spec.dividend, spec.time)
 
 
+def _checked(acc: _WelfordPair, backend: str) -> _WelfordPair:
+    """Refuse moments that are not finite, instead of returning NaN as if it were a price.
+
+    In pure Python an overflow raises OverflowError from math.exp in the middle of the
+    loop. The numpy and cpp kernels cannot raise mid-loop: the overflow shows up as inf or
+    nan in what they return, so it is turned into the same error here.
+    """
+    if backend != "python":
+        numbers = (acc.mean_x, acc.mean_y, acc.m2_x, acc.m2_y, acc.c_xy)
+        if not all(math.isfinite(v) for v in numbers):
+            raise OverflowError("monte carlo payoffs overflowed; the inputs are too extreme")
+    return acc
+
+
 def _finish_cv(acc: _WelfordPair, ex: float, method: str, used_cv: bool) -> PricingResult:
     r = PricingResult(work=acc.n, method=method, converged=acc.n > 1)
     if not used_cv or acc.var_x() <= 0.0:
@@ -100,7 +114,8 @@ def european(
     ex = _known_mean_st(spec)
     sampler = kernel.EuropeanSampler(spec, cfg.seed, anti)
     sampler.advance(cfg.paths)
-    return _finish_cv(sampler.moments(), ex, _european_method_name(cfg.vr), cv)
+    acc = _checked(sampler.moments(), backend)
+    return _finish_cv(acc, ex, _european_method_name(cfg.vr), cv)
 
 
 def european_adaptive(
@@ -127,7 +142,8 @@ def european_adaptive(
         take = min(cfg.batch, remaining)
         sampler.advance(take)
         done += take
-        last = _finish_cv(sampler.moments(), ex, _european_method_name(cfg.base.vr), cv)
+        acc = _checked(sampler.moments(), backend)
+        last = _finish_cv(acc, ex, _european_method_name(cfg.base.vr), cv)
         last.notes = "adaptive" if last.notes == "" else last.notes + ", adaptive"
         if last.error_estimate <= cfg.stderr_tol and done >= cfg.batch:
             last.converged = True
@@ -154,7 +170,9 @@ def arithmetic_asian(
     anti = has_flag(cfg.mc.vr, VarianceReduction.ANTITHETIC)
     cv = has_flag(cfg.mc.vr, VarianceReduction.CONTROL_VARIATE)
     ex = geometric_asian(spec, cfg.steps)
-    acc = kernel.asian_moments(spec, cfg.steps, cfg.mc.paths, cfg.mc.seed, anti)
+    acc = _checked(
+        kernel.asian_moments(spec, cfg.steps, cfg.mc.paths, cfg.mc.seed, anti), backend
+    )
 
     if anti and cv:
         name = "mc-asian-antithetic-cv"

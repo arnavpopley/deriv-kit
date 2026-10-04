@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from derivkit import BACKENDS, BackendUnavailableError, available_backends
+from derivkit import BACKENDS, BackendUnavailableError, available_backends, backends
 from derivkit.monte_carlo import (
     AdaptiveMcConfig,
     AsianConfig,
@@ -54,7 +54,39 @@ def test_unavailable_backend_says_how_to_get_it(monkeypatch, name, hint):
     with pytest.raises(BackendUnavailableError, match=hint) as excinfo:
         european(SPEC, McConfig(paths=10), backend=name)
     assert f"backend {name!r} is not available" in str(excinfo.value)
+    assert excinfo.value.missing
     assert name not in available_backends()
+
+
+def test_a_backend_that_fails_to_load_shows_the_real_error(monkeypatch):
+    """Present but broken is not the same as absent: do not tell the user to install it."""
+
+    def broken(name):
+        raise ImportError("dlopen failed: libstdc++.so.6 not found")
+
+    monkeypatch.setattr(backends.importlib, "import_module", broken)
+    with pytest.raises(BackendUnavailableError, match="installed but failed to load") as excinfo:
+        european(SPEC, McConfig(paths=10), backend="cpp")
+    assert "dlopen failed" in str(excinfo.value)
+    assert not excinfo.value.missing
+    with pytest.warns(RuntimeWarning, match="failed to load"):
+        assert available_backends() == ("python",)
+
+
+def test_importing_derivkit_does_not_load_the_benchmark_harness():
+    script = (
+        "import sys, derivkit\n"
+        "assert 'derivkit.comparison' not in sys.modules\n"
+        "assert callable(derivkit.compare) and callable(derivkit.accuracy_per_second)\n"
+        "assert 'derivkit.comparison' in sys.modules\n"
+        "from derivkit import compare\n"
+        "print('ok')\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(SRC)}
+    done = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, env=env, check=False
+    )
+    assert done.returncode == 0, done.stderr
 
 
 def test_core_works_without_numpy_or_the_extension():

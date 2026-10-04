@@ -15,14 +15,19 @@ from __future__ import annotations
 
 import math
 import operator
+import sys
 
 import numpy as np
 
 from derivkit._moments import WelfordPair
-from derivkit.types import OptionType, VanillaSpec
+from derivkit.rng import _MASK64
+from derivkit.types import OptionType, VanillaSpec, discount_factor
 
 _CHUNK = 1 << 16  # float64 elements per work array: 512 KiB each
-_MASK64 = 0xFFFFFFFFFFFFFFFF
+
+# Overflow to inf is reported by the caller (monte_carlo raises OverflowError on non-finite
+# moments), so NumPy's own floating-point warnings would only repeat it.
+_QUIET = {"over": "ignore", "invalid": "ignore"}
 
 
 def _generator(seed: int) -> np.random.Generator:
@@ -51,6 +56,23 @@ def _accumulate(acc: WelfordPair, x: np.ndarray, y: np.ndarray) -> None:
     acc.merge(x.size, mean_x, mean_y, float(np.dot(x, x)), float(np.dot(y, y)), float(np.dot(x, y)))
 
 
+def _settled(acc: WelfordPair) -> WelfordPair:
+    """A copy of the moments with spread at the level of rounding noise set to exactly zero.
+
+    Constant samples (zero volatility) should have zero variance. Chunk means are rounded,
+    so merging chunks leaves a variance of order (machine epsilon x mean)^2 instead, which
+    is enough to defeat the exact `var_x() <= 0` test that switches the control variate
+    off. The python and cpp kernels give exactly zero; this makes numpy agree.
+    """
+    eps = 8.0 * sys.float_info.epsilon
+    out = WelfordPair(acc.n, acc.mean_x, acc.mean_y, acc.m2_x, acc.m2_y, acc.c_xy)
+    if out.m2_x <= out.n * (eps * abs(out.mean_x)) ** 2:
+        out.m2_x = out.c_xy = 0.0
+    if out.m2_y <= out.n * (eps * abs(out.mean_y)) ** 2:
+        out.m2_y = out.c_xy = 0.0
+    return out
+
+
 class EuropeanSampler:
     """Exact GBM terminal sampling. `advance` may be called repeatedly; the stream continues."""
 
@@ -59,11 +81,12 @@ class EuropeanSampler:
         # factor ride inside the exponent and the strike, which saves two array passes:
         #   x = half * df * S_T = exp(shift + vol_t * z),  y = max(x - half * df * K, 0).
         half = 0.5 if antithetic else 1.0
-        df = math.exp(-spec.rate * spec.time)
         drift = (spec.rate - spec.dividend - 0.5 * spec.vol * spec.vol) * spec.time
         self._vol_t = spec.vol * math.sqrt(spec.time)
-        self._shift = math.log(half * df * spec.spot) + drift
-        self._strike = half * df * spec.strike
+        # log(half * df * spot), with log(df) = -r T written out: the discount factor
+        # itself underflows to zero for very large r T, and log(0) would be an error.
+        self._shift = math.log(half * spec.spot) - spec.rate * spec.time + drift
+        self._strike = half * discount_factor(spec.rate, spec.time) * spec.strike
         self._is_call = spec.type is OptionType.CALL
         self._antithetic = antithetic
         self._rng = _generator(seed)
@@ -76,25 +99,26 @@ class EuropeanSampler:
     def advance(self, paths: int) -> None:
         shift, strike, is_call = self._shift, self._strike, self._is_call
         remaining = operator.index(paths)
-        while remaining > 0:
-            m = min(remaining, _CHUNK)
-            z, x, y = self._z[:m], self._x[:m], self._y[:m]
-            self._rng.standard_normal(out=z)
-            z *= self._vol_t
-            np.add(z, shift, out=x)
-            np.exp(x, out=x)
-            _payoff(x, strike, is_call, out=y)
-            if self._antithetic:
-                # Reuse z for the mirrored leg: exp(shift - vol_t * z).
-                np.subtract(shift, z, out=z)
-                np.exp(z, out=z)
-                x += z
-                y += _payoff(z, strike, is_call, out=z)
-            _accumulate(self._acc, x, y)
-            remaining -= m
+        with np.errstate(**_QUIET):
+            while remaining > 0:
+                m = min(remaining, _CHUNK)
+                z, x, y = self._z[:m], self._x[:m], self._y[:m]
+                self._rng.standard_normal(out=z)
+                z *= self._vol_t
+                np.add(z, shift, out=x)
+                np.exp(x, out=x)
+                _payoff(x, strike, is_call, out=y)
+                if self._antithetic:
+                    # Reuse z for the mirrored leg: exp(shift - vol_t * z).
+                    np.subtract(shift, z, out=z)
+                    np.exp(z, out=z)
+                    x += z
+                    y += _payoff(z, strike, is_call, out=z)
+                _accumulate(self._acc, x, y)
+                remaining -= m
 
     def moments(self) -> WelfordPair:
-        return self._acc
+        return _settled(self._acc)
 
 
 def asian_moments(
@@ -106,7 +130,7 @@ def asian_moments(
     dt = spec.time / float(steps)
     drift = (spec.rate - spec.dividend - 0.5 * spec.vol * spec.vol) * dt
     vol_dt = spec.vol * math.sqrt(dt)
-    scale = (0.5 if antithetic else 1.0) * math.exp(-spec.rate * spec.time)
+    scale = (0.5 if antithetic else 1.0) * discount_factor(spec.rate, spec.time)
     spot, strike, is_call = spec.spot, spec.strike, spec.type is OptionType.CALL
     rows = max(1, _CHUNK // steps)
     rng = _generator(seed)
@@ -131,17 +155,18 @@ def asian_moments(
         geo *= scale
         arith *= scale
 
-    while remaining > 0:
-        m = min(remaining, rows)
-        shocks = z[:m]
-        rng.standard_normal(out=shocks)
-        shocks *= vol_dt
-        leg(shocks, x[:m], y[:m])
-        if antithetic:
-            np.negative(shocks, out=shocks)
-            leg(shocks, x2[:m], y2[:m])
-            x[:m] += x2[:m]
-            y[:m] += y2[:m]
-        _accumulate(acc, x[:m], y[:m])
-        remaining -= m
-    return acc
+    with np.errstate(**_QUIET):
+        while remaining > 0:
+            m = min(remaining, rows)
+            shocks = z[:m]
+            rng.standard_normal(out=shocks)
+            shocks *= vol_dt
+            leg(shocks, x[:m], y[:m])
+            if antithetic:
+                np.negative(shocks, out=shocks)
+                leg(shocks, x2[:m], y2[:m])
+                x[:m] += x2[:m]
+                y[:m] += y2[:m]
+            _accumulate(acc, x[:m], y[:m])
+            remaining -= m
+    return _settled(acc)

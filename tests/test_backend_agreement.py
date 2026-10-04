@@ -26,9 +26,13 @@ STDERR_REL = 5% (standard errors across back ends)
 
 import itertools
 import math
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
-from conftest import usable_backends
+from conftest import require_backend, usable_backends
 
 from derivkit import backends as registry
 from derivkit.black_scholes import price
@@ -142,3 +146,77 @@ def test_batches_continue_the_stream(backend, antithetic):
         assert a.n == b.n
         for f in fields[1:]:
             assert getattr(a, f) == pytest.approx(getattr(b, f), rel=1e-11)
+
+
+def test_constant_payoffs_have_zero_error_and_no_beta(backend):
+    """Zero volatility: every path is the same, so the error is exactly zero and there is
+    no control-variate slope to estimate. 70,000-path batches span two NumPy chunks."""
+    flat = VanillaSpec(spot=100.0, strike=90.0, rate=0.05, vol=0.0, time=1.0)
+    cfg = AdaptiveMcConfig(base=McConfig(vr=VR["cv"]), batch=70_000, max_paths=200_000)
+    r = european_adaptive(flat, cfg, backend=backend)
+    assert r.error_estimate == 0.0
+    assert "beta" not in r.notes
+    assert r.value == pytest.approx(price(flat), rel=1e-12)
+
+
+def test_a_fully_discounted_option_is_worth_zero_in_every_backend(backend):
+    # exp(-r T) underflows to zero here; the price is 0, not an error.
+    spec = VanillaSpec(spot=100.0, strike=100.0, rate=8.0, dividend=8.0, vol=0.2, time=100.0)
+    r = european(spec, McConfig(paths=1000), backend=backend)
+    assert (r.value, r.error_estimate) == (0.0, 0.0)
+
+
+@pytest.mark.parametrize("name", ["numpy", "cpp"])
+def test_overflow_raises_instead_of_returning_nan(name):
+    """The compiled kernels cannot raise in mid-loop, so their result is checked afterwards."""
+    require_backend(name)
+    spec = VanillaSpec(spot=100.0, strike=100.0, rate=8.0, vol=0.2, time=100.0)
+    with pytest.raises(OverflowError, match="overflowed"):
+        arithmetic_asian(spec, AsianConfig(mc=McConfig(paths=200), steps=4), backend=name)
+
+
+def test_cpp_runs_in_slices_without_changing_the_result(cpp_backend, monkeypatch):
+    """Long C++ runs are cut into slices so Ctrl-C can get through. The cut must not show."""
+    from derivkit import _mc_cpp
+
+    spec = SPECS["put"]
+    euro = McConfig(paths=5001, seed=SEED, vr=VR["antithetic"])
+    asian = AsianConfig(mc=McConfig(paths=301, seed=SEED, vr=VR["both"]), steps=12)
+    monkeypatch.setattr(_mc_cpp, "_SLICE", 37)
+    assert european(spec, euro, backend="cpp") == european(spec, euro)
+    assert arithmetic_asian(spec, asian, backend="cpp") == arithmetic_asian(spec, asian)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="sends SIGINT to itself")
+@pytest.mark.parametrize("engine", ["european", "asian"])
+def test_ctrl_c_stops_a_long_cpp_run(cpp_backend, engine):
+    """The child starts a simulation that would run for a minute or more, interrupts itself
+    after 0.3 s, and must stop promptly with KeyboardInterrupt."""
+    call = {
+        "european": "european(spec, McConfig(paths=5_000_000_000), backend='cpp')",
+        "asian": "arithmetic_asian(spec, AsianConfig(mc=McConfig(paths=200_000_000), steps=50), "
+        "backend='cpp')",
+    }[engine]
+    script = f"""
+import os, signal, threading, time
+from derivkit.monte_carlo import AsianConfig, McConfig, arithmetic_asian, european
+from derivkit.types import VanillaSpec
+spec = VanillaSpec(spot=100.0, strike=100.0, rate=0.05, vol=0.2, time=1.0)
+threading.Timer(0.3, lambda: os.kill(os.getpid(), signal.SIGINT)).start()
+start = time.perf_counter()
+try:
+    {call}
+except KeyboardInterrupt:
+    print("interrupted", time.perf_counter() - start)
+"""
+    src = Path(__file__).resolve().parents[1] / "src"
+    done = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": str(src)},
+        timeout=30,
+        check=False,
+    )
+    assert done.stdout.startswith("interrupted"), done.stderr
+    assert float(done.stdout.split()[1]) < 5.0

@@ -47,3 +47,6 @@ packages = ["src/derivkit"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+# A back end that is present but broken warns; in the test suite that is a failure, so a
+# build that merely looks "not installed" cannot hide behind skipped tests.
+filterwarnings = ["error:backend:RuntimeWarning"]
