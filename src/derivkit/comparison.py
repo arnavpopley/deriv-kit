@@ -40,7 +40,7 @@ from derivkit import backends as _backends
 from derivkit.black_scholes import price
 from derivkit.monte_carlo import McConfig, european
 from derivkit.result import PricingResult
-from derivkit.types import OptionType, VanillaSpec, VarianceReduction, validate
+from derivkit.types import VanillaSpec, VarianceReduction, option_type_str, validate
 
 VR_METHODS: dict[str, VarianceReduction] = {
     "none": VarianceReduction.NONE,
@@ -80,22 +80,25 @@ _THREAD_VARS = (
     "VECLIB_MAXIMUM_THREADS",
     "NUMEXPR_NUM_THREADS",
 )
-_pinned_in_time: bool | None = None
+_pinned = False
 
 
 def pin_to_one_thread() -> bool:
-    """Ask BLAS and OpenMP runtimes for a single thread, so the comparison is like for like.
+    """Ask BLAS and OpenMP runtimes for one thread, in this process and its children.
 
-    These libraries read the variables when they load, so this only takes effect if NumPy
-    has not been imported yet. Returns whether the request was made in time. Either way
-    each row reports CPU time over wall time, which shows what actually happened.
+    Those libraries read the variables when they load, so the request only works before
+    NumPy is imported. If NumPy is already loaded, nothing is changed and the answer is
+    False. The command line calls this first thing. `compare` and `accuracy_per_second` do
+    not change your environment for you: call this yourself, before importing NumPy, if
+    you want the guarantee. Either way every row reports CPU time over wall time, which
+    shows how many threads actually ran.
     """
-    global _pinned_in_time
-    if _pinned_in_time is None:  # only the first call can be in time; remember its answer
-        _pinned_in_time = "numpy" not in sys.modules
+    global _pinned
+    if not _pinned and "numpy" not in sys.modules:
         for var in _THREAD_VARS:
             os.environ[var] = "1"
-    return _pinned_in_time
+        _pinned = True
+    return _pinned
 
 
 @dataclass(frozen=True)
@@ -131,18 +134,30 @@ def _timed(
     return result, timing, cpu / sum(walls)
 
 
-def _rate(
-    spec: VanillaSpec, cfg: McConfig, backend: str, target_seconds: float
-) -> tuple[float, int]:
-    """One quick run to learn roughly how many paths per second `backend` manages.
+_PILOT_SECONDS = 0.02
 
+
+def _rate(
+    spec: VanillaSpec, cfg: McConfig, backend: str, target_seconds: float, limit: int | None = None
+) -> tuple[float, int]:
+    """Short runs to learn roughly how many paths per second `backend` manages.
+
+    The pilot starts small and grows until it takes long enough to time: the fast back
+    ends finish 20,000 paths in a fraction of a millisecond, where start-up cost would
+    dominate. It never runs more than `limit` paths.
     Returns (paths per second, a path count that should take about `target_seconds`).
     """
-    pilot = 20_000
-    start = time.perf_counter()
-    european(spec, McConfig(paths=pilot, seed=cfg.seed, vr=cfg.vr), backend=backend)
-    rate = pilot / (time.perf_counter() - start)
-    return rate, max(pilot, int(rate * target_seconds))
+    cap = max(2, limit) if limit is not None else None
+    pilot = 20_000 if cap is None else min(20_000, cap)
+    while True:
+        start = time.perf_counter()
+        european(spec, McConfig(paths=pilot, seed=cfg.seed, vr=cfg.vr), backend=backend)
+        elapsed = time.perf_counter() - start
+        if elapsed >= _PILOT_SECONDS or (cap is not None and pilot >= cap):
+            break
+        pilot = pilot * 8 if cap is None else min(pilot * 8, cap)
+    rate = pilot / elapsed
+    return rate, max(2, int(rate * target_seconds))
 
 
 def _resolve_backends(backends: Iterable[str] | None) -> tuple[str, ...]:
@@ -168,6 +183,7 @@ class CompareRow:
     backend: str
     vr: VarianceReduction
     paths: int
+    seed: int
     value: float
     stderr: float
     abs_error: float  # |value - Black-Scholes|
@@ -186,6 +202,18 @@ class Skipped:
     reason: str
 
 
+@dataclass(frozen=True)
+class SpeedRatio:
+    """Median run time of `baseline` divided by that of `faster`, for one configuration."""
+
+    vr: VarianceReduction
+    paths: int
+    seed: int
+    faster: str
+    baseline: str
+    ratio: float
+
+
 @dataclass
 class CompareReport:
     spec: VanillaSpec
@@ -196,18 +224,23 @@ class CompareReport:
     rows: list[CompareRow] = field(default_factory=list)
     skipped: list[Skipped] = field(default_factory=list)
 
-    def speed_ratios(self) -> list[tuple[VarianceReduction, int, str, str, float]]:
-        """(vr, paths, faster-if-above-1 back end, baseline, ratio of median run times).
+    def configs(self) -> list[tuple[VarianceReduction, int, int]]:
+        """The distinct (variance reduction, paths, seed) settings measured, in run order."""
+        return list(dict.fromkeys((r.vr, r.paths, r.seed) for r in self.rows))
 
-        A ratio of 2 means the first back end ran the same paths in half the time.
+    def speed_ratios(self) -> list[SpeedRatio]:
+        """How much faster one back end ran the same configuration than another.
+
+        A ratio of 2 means `faster` ran the same paths in half the time of `baseline`.
         """
-        by_key = {(r.vr, r.paths, r.backend): r for r in self.rows}
+        by_key = {(r.vr, r.paths, r.seed, r.backend): r for r in self.rows}
         out = []
-        for vr, paths in dict.fromkeys((r.vr, r.paths) for r in self.rows):
+        for vr, paths, seed in self.configs():
             for fast, base in (("cpp", "numpy"), ("cpp", "python"), ("numpy", "python")):
-                a, b = by_key.get((vr, paths, fast)), by_key.get((vr, paths, base))
+                a, b = by_key.get((vr, paths, seed, fast)), by_key.get((vr, paths, seed, base))
                 if a and b:
-                    out.append((vr, paths, fast, base, b.seconds.median / a.seconds.median))
+                    ratio = b.seconds.median / a.seconds.median
+                    out.append(SpeedRatio(vr, paths, seed, fast, base, ratio))
         return out
 
     def table(self) -> str:
@@ -239,13 +272,12 @@ def compare(
         configs = McConfig()
     if isinstance(configs, McConfig):
         configs = [configs]
-    pinned = pin_to_one_thread()
     names = _resolve_backends(backends)
-    report = CompareReport(spec, price(spec), repeats, warmup, pinned)
+    report = CompareReport(spec, price(spec), repeats, warmup, _pinned)
     for cfg in configs:
         for name in names:
             if max_run_seconds is not None:
-                rate, _ = _rate(spec, cfg, name, 0.0)
+                rate, _ = _rate(spec, cfg, name, 0.0, limit=cfg.paths)
                 estimate = cfg.paths / rate
                 if estimate > max_run_seconds:
                     reason = (
@@ -268,6 +300,7 @@ def compare(
                     backend=name,
                     vr=cfg.vr,
                     paths=cfg.paths,
+                    seed=cfg.seed,
                     value=result.value,
                     stderr=result.error_estimate,
                     abs_error=abs(result.value - report.reference),
@@ -341,13 +374,12 @@ def accuracy_per_second(
     """
     _check_repeats(repeats, warmup)
     validate(spec)
-    if not budgets or min(budgets) <= 0.0:
-        raise ValueError("budgets must be positive")
+    if not budgets or not all(math.isfinite(b) and b > 0.0 for b in budgets):
+        raise ValueError("budgets must be positive and finite")
     methods = list(VR_METHODS.values()) if vr_methods is None else list(vr_methods)
-    pinned = pin_to_one_thread()
     names = _resolve_backends(backends)
     reference = price(spec)
-    report = BudgetReport(spec, reference, seed, tuple(budgets), repeats, warmup, pinned)
+    report = BudgetReport(spec, reference, seed, tuple(budgets), repeats, warmup, _pinned)
     for vr in methods:
         for name in names:
             if progress:
@@ -432,6 +464,22 @@ def _power_state() -> str:
     return f"{supply}, Low Power Mode {low}"
 
 
+def _checkout_root() -> Path | None:
+    """The repository root when derivkit runs from its own source checkout, else None.
+
+    An installed copy lives in site-packages, which may sit inside some unrelated git
+    repository; its commit would say nothing about derivkit.
+    """
+    package = Path(__file__).resolve().parent
+    root = package.parent.parent
+    in_checkout = (
+        package.parent.name == "src"
+        and (root / "pyproject.toml").is_file()
+        and (root / ".git").exists()
+    )
+    return root if in_checkout else None
+
+
 def environment() -> dict[str, str]:
     """What the numbers were measured on: hardware, OS, interpreter, libraries, compiler.
 
@@ -469,8 +517,8 @@ def environment() -> dict[str, str]:
     power = _power_state()
     if power:
         info["Power"] = power
-    root = Path(__file__).resolve().parents[2]
-    commit = _run(["git", "rev-parse", "--short", "HEAD"], cwd=root)
+    root = _checkout_root()
+    commit = _run(["git", "rev-parse", "--short", "HEAD"], cwd=root) if root else ""
     if commit:
         changed = _run(["git", "status", "--porcelain"], cwd=root)
         dirty = " plus uncommitted changes" if changed else ""
@@ -520,20 +568,26 @@ def _md_table(headers: Sequence[str], rows: Iterable[Sequence[str]], left: int =
 
 
 def describe(spec: VanillaSpec) -> str:
-    kind = "call" if spec.type is OptionType.CALL else "put"
     return (
-        f"European {kind}, S = {spec.spot:g}, K = {spec.strike:g}, r = {spec.rate:.2%}, "
-        f"q = {spec.dividend:.2%}, vol = {spec.vol:.2%}, T = {spec.time:g}"
+        f"European {option_type_str(spec.type)}, S = {spec.spot:g}, K = {spec.strike:g}, "
+        f"r = {spec.rate:.2%}, q = {spec.dividend:.2%}, vol = {spec.vol:.2%}, T = {spec.time:g}"
     )
 
 
-def _compare_tables(report: CompareReport) -> str:
-    parts = [f"{describe(report.spec)}. Black-Scholes = {report.reference:.8f}."]
+def _headline(report: CompareReport | BudgetReport) -> str:
+    return f"{describe(report.spec)}. Black-Scholes = {report.reference:.8f}."
+
+
+def _compare_tables(report: CompareReport, headline: bool = True) -> str:
+    parts = [_headline(report)] if headline else []
+    several_seeds = len({r.seed for r in report.rows}) > 1
+    seed_header = ("Seed",) if several_seeds else ()
     for vr in dict.fromkeys(r.vr for r in report.rows):
         rows = [
             (
                 r.backend,
                 f"{r.paths:,}",
+                *((str(r.seed),) if several_seeds else ()),
                 f"{r.value:.6f}",
                 _sci(r.stderr),
                 _sci(r.abs_error),
@@ -549,6 +603,7 @@ def _compare_tables(report: CompareReport) -> str:
         headers = (
             "Back end",
             "Paths",
+            *seed_header,
             "Price",
             "Std. error",
             "Abs. error vs BS",
@@ -559,8 +614,7 @@ def _compare_tables(report: CompareReport) -> str:
             "CPU / wall",
         )
         parts.append(f"**{VR_LABELS[vr_name(vr)]}**\n\n" + _md_table(headers, rows))
-    ratios = report.speed_ratios()
-    if ratios:
+    if report.speed_ratios():
         parts.append(
             "**Speed ratios** (same paths; above 1 means the first back end is faster)\n\n"
             + _ratio_table(report)
@@ -573,24 +627,34 @@ def _compare_tables(report: CompareReport) -> str:
                 for s in report.skipped
             )
         )
+    if not report.rows and not report.skipped:
+        parts.append("No measurements were taken.")
     return "\n\n".join(parts)
 
 
 def _ratio_table(report: CompareReport) -> str:
-    pairs = list(dict.fromkeys((fast, base) for _, _, fast, base, _ in report.speed_ratios()))
-    lookup = {(vr, paths, fast, base): x for vr, paths, fast, base, x in report.speed_ratios()}
+    ratios = report.speed_ratios()
+    pairs = list(dict.fromkeys((s.faster, s.baseline) for s in ratios))
+    lookup = {(s.vr, s.paths, s.seed, s.faster, s.baseline): s.ratio for s in ratios}
+    several_seeds = len({r.seed for r in report.rows}) > 1
     rows = []
-    for vr, paths in dict.fromkeys((r.vr, r.paths) for r in report.rows):
+    for vr, paths, seed in report.configs():
         cells = []
         for fast, base in pairs:
-            ratio = lookup.get((vr, paths, fast, base))
+            ratio = lookup.get((vr, paths, seed, fast, base))
             cells.append("not run" if ratio is None else _times(ratio))
-        rows.append((VR_LABELS[vr_name(vr)], f"{paths:,}", *cells))
-    headers = ("Variance reduction", "Paths", *(f"{fast} vs {base}" for fast, base in pairs))
+        label = (VR_LABELS[vr_name(vr)], f"{paths:,}", *((str(seed),) if several_seeds else ()))
+        rows.append((*label, *cells))
+    headers = (
+        "Variance reduction",
+        "Paths",
+        *(("Seed",) if several_seeds else ()),
+        *(f"{fast} vs {base}" for fast, base in pairs),
+    )
     return _md_table(headers, rows)
 
 
-def _budget_tables(report: BudgetReport) -> str:
+def _budget_tables(report: BudgetReport, headline: bool = True) -> str:
     names = list(dict.fromkeys(r.backend for r in report.rows))
     by_key = {(r.vr, r.budget, r.backend): r for r in report.rows}
     summary = []
@@ -614,7 +678,7 @@ def _budget_tables(report: BudgetReport) -> str:
                     )
                 )
     parts = [
-        f"{describe(report.spec)}. Black-Scholes = {report.reference:.8f}.",
+        *((_headline(report),) if headline else ()),
         "**Standard error reached in a fixed time** (smaller is better)\n\n"
         + _md_table(("Variance reduction", "Time budget", *names), summary, left=2),
         "**Detail of each budget run**\n\n"
@@ -687,8 +751,10 @@ def require_matplotlib():
 def plot_accuracy_vs_time(report: BudgetReport, path: str | os.PathLike[str]) -> None:
     """Save the accuracy-per-second view as a PNG: one panel per variance-reduction method."""
     matplotlib = require_matplotlib()
-    matplotlib.use("Agg")  # draw straight to a file; no window needed
-    import matplotlib.pyplot as plt
+    # A Figure with its own Agg canvas draws straight to a file. Going through pyplot
+    # would switch the caller's interactive back end as a side effect.
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
     from matplotlib.ticker import FixedFormatter, FixedLocator, NullLocator
 
     methods = list(dict.fromkeys(r.vr for r in report.rows))
@@ -706,10 +772,10 @@ def plot_accuracy_vs_time(report: BudgetReport, path: str | os.PathLike[str]) ->
         return sorted((r.seconds, r.stderr) for r in rows)
 
     width, height = max(4.8 * cols, 7.6), 3.0 * nrows + 2.0  # inches
-    with plt.rc_context(fonts):
-        fig, axes = plt.subplots(
-            nrows, cols, sharex=True, sharey=True, squeeze=False, figsize=(width, height)
-        )
+    with matplotlib.rc_context(fonts):
+        fig = Figure(figsize=(width, height))
+        FigureCanvasAgg(fig)
+        axes = fig.subplots(nrows, cols, sharex=True, sharey=True, squeeze=False)
         fig.patch.set_facecolor(_SURFACE)
         # Margins in inches, so the header and axis titles keep their size at any grid shape.
         fig.subplots_adjust(
@@ -755,8 +821,13 @@ def plot_accuracy_vs_time(report: BudgetReport, path: str | os.PathLike[str]) ->
             for side in ("left", "bottom"):
                 ax.spines[side].set_color(_AXIS)
             ax.tick_params(colors=_INK_MUTED, labelsize=9, length=0)
-        for ax in axes.flat[len(methods):]:
-            ax.set_visible(False)
+        for index in range(len(methods), nrows * cols):
+            # An unused cell in the grid: hide it, and give the panel above it the time
+            # labels that a shared x-axis would otherwise only put on the bottom row.
+            row, col = divmod(index, cols)
+            axes[row][col].set_visible(False)
+            if row > 0:
+                axes[row - 1][col].tick_params(labelbottom=True)
 
         # Name each line at its right-hand end. This runs after every panel is drawn
         # because the shared axis limits are only final then. Labels share one x position,
@@ -822,7 +893,6 @@ def plot_accuracy_vs_time(report: BudgetReport, path: str | os.PathLike[str]) ->
         )
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(path, dpi=200, facecolor=_SURFACE)
-        plt.close(fig)
 
 
 def write_report(
@@ -862,11 +932,11 @@ def write_report(
         if plot is not None:
             image = os.path.relpath(plot, path.parent)
             out.append(f"![Standard error against time budget]({image})")
-        out.append(budget.table().split("\n\n", 1)[1])
+        out.append(_budget_tables(budget, headline=False))
         out.append("**Calibration behind the budgets**\n\n" + _calibration_table(budget))
     if fixed is not None:
         out.append("## Fixed path counts")
-        out.append(fixed.table().split("\n\n", 1)[1])
+        out.append(_compare_tables(fixed, headline=False))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n\n".join(out) + "\n")
 
@@ -876,7 +946,8 @@ def _method_notes(fixed: CompareReport | None, budget: BudgetReport | None) -> l
     pinned = (
         "BLAS and OpenMP were pinned to one thread before NumPy was imported."
         if first.threads_pinned
-        else "NumPy was already imported, so BLAS could not be pinned to one thread."
+        else "BLAS threads were not pinned for this run (that needs `pin_to_one_thread()` "
+        "before NumPy is imported; the command line does it)."
     )
     notes = [
         "- Every back end is called through the same public function, "

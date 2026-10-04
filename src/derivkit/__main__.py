@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import shlex
 import sys
 
@@ -24,10 +25,35 @@ from derivkit.types import OptionType, VanillaSpec
 
 def _count(text: str) -> int:
     """A path count; accepts 100000, 1e5 or 100_000."""
-    value = float(text)
-    if value != int(value) or value < 2:
+    try:
+        value = float(text)
+        whole = int(value)  # raises for inf and nan
+    except (ValueError, OverflowError):
+        whole, value = 0, 1.0
+    if whole != value or whole < 2:
         raise argparse.ArgumentTypeError(f"{text!r} is not a whole number of paths (at least 2)")
-    return int(value)
+    return whole
+
+
+def _seconds(text: str) -> float:
+    """A positive, finite number of seconds."""
+    try:
+        value = float(text)
+    except ValueError:
+        value = math.nan
+    if not (math.isfinite(value) and value > 0.0):
+        raise argparse.ArgumentTypeError(f"{text!r} is not a positive number of seconds")
+    return value
+
+
+def _repeats(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a positive whole number")
+    return value
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -68,15 +94,19 @@ def _parser() -> argparse.ArgumentParser:
         help="back ends to compare (default: every one that is available)",
     )
     run.add_argument(
-        "--budgets", type=float, nargs="*", default=None, metavar="SECONDS",
+        "--budgets", type=_seconds, nargs="*", default=None, metavar="SECONDS",
         help="also run the accuracy-per-second view for these time budgets "
         f"(with no values: {' '.join(f'{b:g}' for b in DEFAULT_BUDGETS)})",
     )
     run.add_argument(
-        "--repeats", type=int, default=7, help="timed runs per measurement (default: 7)"
+        "--repeats", type=_repeats, default=7, help="timed runs per measurement (default: 7)"
     )
     run.add_argument(
-        "--max-run-seconds", type=float, default=120.0,
+        "--calibration-seconds", type=_seconds, default=0.2, metavar="SECONDS",
+        help="length of each run used to measure paths per second for --budgets (default: 0.2)",
+    )
+    run.add_argument(
+        "--max-run-seconds", type=_seconds, default=120.0,
         help="skip a back end at a path count if one run is estimated to take longer "
         "(default: 120)",
     )
@@ -140,6 +170,7 @@ def _compare(args: argparse.Namespace, argv: list[str]) -> int:
                 vr_methods=methods,
                 backends=args.backends,
                 repeats=args.repeats,
+                calibration_seconds=args.calibration_seconds,
                 progress=_progress,
             )
             print()
