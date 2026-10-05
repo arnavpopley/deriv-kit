@@ -111,10 +111,14 @@ jobs:
           # Python is not built with the sanitizer, so the sanitizer's run-time library has
           # to be loaded before anything else. Each compiler ships its own.
           if [ "$CXX" = "g++" ]; then
-            runtime=$($CXX -print-file-name=libasan.so)
+            # GCC's library looks up the routine that throws C++ exceptions when it
+            # starts, and Python has loaded no C++ code by then. Loading libstdc++ along
+            # with it lets that lookup succeed; without it, the first exception thrown
+            # inside the extension aborts the whole test run.
+            runtime="$($CXX -print-file-name=libasan.so) $($CXX -print-file-name=libstdc++.so)"
           else
             runtime=$($CXX -print-file-name=libclang_rt.asan-x86_64.so)
           fi
-          echo "sanitizer run-time library: $runtime"
-          test -f "$runtime"
+          echo "loaded ahead of Python: $runtime"
+          for library in $runtime; do test -f "$library"; done
           LD_PRELOAD="$runtime" python -m pytest
