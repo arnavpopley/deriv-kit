@@ -155,7 +155,6 @@ void table(const char* title, const char* draw, const char* transform, const Bre
     row("payoff and Welford update", b.kernel - b.with_exp);
     row("whole kernel, one path", b.kernel);
     row("whole kernel, one antithetic pair", b.antithetic);
-    std::printf("\n");
     row("not used: exp with log(S) inside the exponent", b.with_folded_exp - b.normals);
     std::printf("\n");
 }

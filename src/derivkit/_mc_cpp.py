@@ -38,8 +38,8 @@ if not hasattr(_ext, "FastEuropeanSampler"):
         "the compiled extension is out of date; rebuild it (cmake --build build)"
     )
 
-RNGS: tuple[str, ...] = ("reproducible", "fast")
-_EUROPEAN = {"reproducible": _ext.EuropeanSampler, "fast": _ext.FastEuropeanSampler}
+# One sampler class per generator name in `derivkit.backends.RNGS`.
+_EUROPEAN ={"reproducible": _ext.EuropeanSampler, "fast": _ext.FastEuropeanSampler}
 _ASIAN = {"reproducible": _ext.AsianSampler, "fast": _ext.FastAsianSampler}
 
 
