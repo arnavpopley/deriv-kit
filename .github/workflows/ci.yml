@@ -92,9 +92,13 @@ jobs:
       - name: Build the C++ extension with sanitizers
         env:
           CXX: ${{ matrix.compiler }}
+        # No -Werror in this build. The GCC manual advises against combining it with
+        # sanitizers, because the extra checking code makes some warnings fire where
+        # nothing is wrong (here, -Warray-bounds inside pybind11). Warnings are errors in
+        # the job above, which compiles the same code with the same compilers.
         run: |
           $CXX --version
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDERIVKIT_WERROR=ON -DDERIVKIT_SANITIZE=ON
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDERIVKIT_SANITIZE=ON
           cmake --build build --parallel
       - name: Test all back ends under the sanitizers
         env:
