@@ -29,8 +29,29 @@ DERIVKIT_REQUIRE_BACKENDS=numpy,cpp pytest
 `DERIVKIT_REQUIRE_BACKENDS` turns a missing back end into a test failure
 instead of a skip. A back end only runs the path loop; validation, the
 control-variate estimate and result naming belong in `monte_carlo.py`, shared
-by all three. The `cpp` back end must keep reproducing the `python` numbers
-for the same seed (`tests/test_monte_carlo_golden.py`).
+by all three. The `cpp` back end, with its default generator, must keep
+reproducing the `python` numbers for the same seed
+(`tests/test_monte_carlo_golden.py`).
+
+The `cpp` back end has two generators, `rng="reproducible"` (the default) and
+`rng="fast"`. The fast one is a different stream on purpose, so it is exempt
+from the golden and same-stream tests by name (`SAME_STREAM_RNGS` in
+`tests/conftest.py`) and has its own in `tests/test_fast_rng.py`. A new
+generator has to be put in one group or the other before the tests pass.
+
+To check the C++ for memory errors and undefined behaviour, build with the
+sanitizers into a separate directory and load their run-time library ahead of
+Python (the Linux form; `.github/workflows/ci.yml` has both compilers):
+
+```bash
+cmake -S . -B build-san -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDERIVKIT_SANITIZE=ON
+cmake --build build-san
+LD_PRELOAD="$(g++ -print-file-name=libasan.so) $(g++ -print-file-name=libstdc++.so)" \
+    ASAN_OPTIONS=detect_leaks=0 pytest
+```
+
+This replaces the extension next to the sources with a slow one, so rebuild the
+ordinary `build` directory afterwards, and never benchmark a sanitizer build.
 
 Timings in `benchmarks/RESULTS.md` are regenerated, never edited by hand:
 
@@ -38,6 +59,11 @@ Timings in `benchmarks/RESULTS.md` are regenerated, never edited by hand:
 python -m derivkit compare --paths 1e5 1e6 1e7 --vr all --budgets 0.1 1 10 \
     --report benchmarks/RESULTS.md --plot benchmarks/accuracy_vs_time.png
 ```
+
+That command rewrites the whole file. The section on the fast generator at the
+end of it comes from a second run and two C++ programs. The commands are listed
+in that section and their output is pasted in unchanged, so after regenerating
+the file, run those in the same session and put the section back.
 
 ## Style
 

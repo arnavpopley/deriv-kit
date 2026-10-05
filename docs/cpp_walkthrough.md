@@ -2,8 +2,8 @@
 
 This is a guided tour of the C++ Monte Carlo kernel for someone who knows Python and is
 new to C++. It covers how Python calls the C++ code, where memory lives, which random
-number generator is used and why, how fast the result is and why, and what would make it
-faster. It ends with ten interview questions and short answers.
+number generators are used and why there are two, how fast the result is and why, and
+what would make it faster. It ends with ten interview questions and short answers.
 
 All timings quoted here were measured on the machine described in
 [benchmarks/RESULTS.md](../benchmarks/RESULTS.md). Where a number comes from somewhere
@@ -35,9 +35,9 @@ cannot disagree about what a control variate is or how a result is named.
 
 | File | What it holds |
 | --- | --- |
-| `cpp/rng.hpp` | `NormalRng`: the random number generator. Header-only. |
+| `cpp/rng.hpp` | `NormalRng` and `FastNormalRng`: the two random number generators. Header-only. |
 | `cpp/welford.hpp` | `WelfordPair`: the running statistics. Header-only. |
-| `cpp/monte_carlo.hpp` | Declarations: `VanillaSpec`, `EuropeanSampler`, `AsianSampler`. |
+| `cpp/monte_carlo.hpp` | Declarations: `VanillaSpec`, the European and Asian samplers, one of each per generator. |
 | `cpp/monte_carlo.cpp` | The two path loops. This is the code that runs hot. |
 | `cpp/bindings.cpp` | The pybind11 glue that makes the above importable from Python. |
 | `CMakeLists.txt` | Build recipe: compiler flags, where the built file goes. |
@@ -89,6 +89,10 @@ py::class_<mc::EuropeanSampler>(m, "EuropeanSampler")   // a Python type backed 
 py::class_<mc::AsianSampler>(m, "AsianSampler") ...     // the same again for Asians
 m.def("build_info", ...);                               // a plain function
 ```
+
+In the file this registration is written once, as a small function template, and used
+four times: `EuropeanSampler` and `AsianSampler` for the default generator, and
+`FastEuropeanSampler` and `FastAsianSampler` for the fast one (section 5).
 
 pybind11 is a header-only C++ library. For each `.def` it generates a small wrapper
 function that Python can call.
@@ -175,6 +179,7 @@ Here is every allocation in a European pricing call:
 | Local copy of the generator and statistics in `advance` | stack | once per `advance` call | same data, copied |
 | `std::array<double, 256> z`, the block of normals | stack | once per `advance` call | 2 KB |
 | The result tuple | Python heap | once, after the loop | 6 numbers |
+| The ziggurat's lookup tables (fast generator only) | static storage | once, when the extension is loaded | 6,152 bytes, shared by every sampler |
 
 Inside the loop itself there is nothing: no `new`, no `std::vector`, no `std::string`, no
 Python objects. Each path reads one number from `z`, does arithmetic in CPU registers and
@@ -184,6 +189,7 @@ The pieces that make this work:
 
 - **`std::mt19937_64` stores its state inline.** Its 312 words live inside the generator
   object, not behind a pointer to the heap. Copying the generator copies those bytes.
+  The fast generator's state is four words, so its sampler is 128 bytes instead of 2,616.
 - **`std::array<double, 256>`** is a fixed-size array whose size is part of its type, so
   the compiler can reserve its space on the stack. `std::vector` would allocate on the
   heap.
@@ -226,7 +232,13 @@ call and read them back after. A local variable whose address never leaves the f
 cannot be touched by anyone else, so the compiler is free to keep it in a CPU register
 for the whole loop.
 
-## 5. The random number generator
+## 5. The random number generators
+
+There are two, behind one interface. The default is the **reproducible** generator, which
+draws the same stream as the pure-Python engine. The second is the **fast** generator,
+chosen with `rng="fast"`. The reason for keeping both is at the end of this section.
+
+### The reproducible generator (the default)
 
 **What:** `std::mt19937_64`, the 64-bit Mersenne Twister from the C++ standard library,
 turned into normal draws by a hand-written Box-Muller transform.
@@ -263,6 +275,97 @@ the stream portable.
 a standard choice for Monte Carlo work for decades. It is known to fail a few specialised
 tests of linear structure, which do not matter for pricing. It is not the fastest choice,
 and that turns out to be the main story in section 7.
+
+### The fast generator
+
+**What:** xoshiro256++ for the random bits and the ziggurat method for turning them into
+normal draws. From Python: `european(spec, cfg, backend="cpp", rng="fast")`.
+
+**xoshiro256++** (Blackman and Vigna, public domain) keeps four 64-bit words of state, 32
+bytes against the Mersenne Twister's 2.5 KB. One step is a handful of shifts, adds and
+exclusive-ors, with no table to walk through and no "tempering" pass over the output. Its
+period is 2^256 - 1. The four words are filled from the seed by SplitMix64, a simple
+mixing function the xoshiro authors recommend for this, so a single integer seed still
+works and seed 0 is as good as any other.
+
+**The ziggurat method** (Marsaglia and Tsang, 2000) is why the normal draw gets cheap.
+Picture the right half of the bell curve covered by 256 horizontal strips of equal area,
+stacked like a stepped pyramid. To draw a number:
+
+1. Take one 64-bit random number. Its top 8 bits pick a strip. Its next 54 bits, read as
+   a signed integer, pick a position across the strip and the sign of the result.
+2. If the position is inside the part of the strip that lies wholly under the curve,
+   return it. That is one table lookup, one multiplication and one comparison, and it
+   settles 98.5% of draws.
+3. Otherwise the point is in the sliver between the strip's edge and the curve, or in
+   the tail beyond the last strip. Only then is `exp` or `log` called.
+
+Box-Muller calls `log`, `sqrt`, `sin` and `cos` for every pair of draws. The ziggurat
+calls nothing for 98.5% of them. That is the whole speed-up.
+
+Details that matter for correctness:
+
+- **Separate bits for the strip and the position.** The original paper used the same
+  bits for both, which makes them slightly dependent; using separate bits (Doornik, 2005)
+  removes that.
+- **The tables are computed, not typed in.** `Ziggurat`'s constructor works out the 256
+  strip edges from the equal-area rule when the extension is loaded. They live in static
+  storage and are read-only afterwards.
+- **No `log(0)`.** The tail sampler takes the logarithm of a uniform. `uniform()` returns
+  (k + 1/2) / 2^52 for a 52-bit integer k, which can be neither 0 nor 1.
+- **Tested as a distribution, not only through prices.** The tests draw a million
+  numbers and check the first four moments, a chi-square test over 64 equal-probability
+  bins, the number of draws in each tail and the balance of signs.
+
+**What you can and cannot rely on.** The fast stream is fixed by the seed: the same seed
+gives the same price every time, in one call or in batches. It is not the reproducible
+stream, the pure-Python stream or NumPy's stream. For the same seed its price differs
+from theirs, within the standard error. It is also computed with the platform's `exp`,
+`log` and `sqrt` at start-up and in the uncommon cases, so the last digit of a price can
+differ between compilers or operating systems.
+
+### One path loop, two generators
+
+The path loops in `monte_carlo.cpp` are not written twice. Each sampler is a **template**:
+a class written once with the generator's type left open.
+
+```cpp
+template <NormalGenerator Rng>
+class BasicEuropeanSampler { ... Rng rng_; ... };
+
+using EuropeanSampler     = BasicEuropeanSampler<NormalRng>;      // reproducible
+using FastEuropeanSampler = BasicEuropeanSampler<FastNormalRng>;  // fast
+```
+
+The compiler produces a separate copy of the loop for each generator, with that
+generator's code pasted in. Nothing is decided at run time, so offering a choice costs
+nothing per path, and the reproducible copy is the same machine code it was before the
+fast generator existed. The golden tests confirm that: they did not change and still pass.
+
+`NormalGenerator` is a **concept** (C++20): a named list of what the loop needs from a
+generator (build it from a seed, `uniform()`, `normal()`, `fill(buffer)`). A type that
+lacks one of these is rejected with a short message at the line that tried to use it.
+
+One thing learned while writing `FastNormalRng::fill`. The first version called a member
+function for the uncommon cases and was barely faster than half of what it should have
+been. Once a member function receives `this`, the compiler has to assume the function
+may read or change the generator's state, so it kept the four state words in memory and
+reloaded them for every draw. Copying the state into local variables for the loop, and
+handing it to the member function only when an uncommon case occurs, lets the compiler
+keep it in CPU registers. That one change more than doubled the speed of the loop. It is
+the same idea as the local copies in `advance` (section 4), one level down.
+
+### Why keep both
+
+The reproducible generator is slower on purpose. It is what lets the tests say "the C++
+kernel returns the same numbers as the Python engine" instead of "roughly the same": the
+20 stored results in the golden tests, and every python-against-cpp comparison in the
+agreement tests, rest on it. Replacing it would trade the strongest correctness check in
+the repo for speed.
+
+The fast generator answers a different question: how fast is this kernel when it does not
+have to match Python? Keeping it as a separate, opt-in choice means the answer can be
+measured without weakening the check. Section 7 has the numbers.
 
 ## 6. Floating point: one flag on, one flag deliberately off
 
@@ -381,10 +484,14 @@ tables show two differences, and neither is about the language.
    branch that flips at random is one the CPU cannot predict. That cause was not confirmed
    by profiling; the timing difference was measured.
 
-Both advantages are available to C++ in principle. This kernel gives them up on purpose:
-it must reproduce the pure-Python engine bit for bit, and that engine uses the Mersenne
-Twister with Box-Muller and puts the spot outside the `exp`. The price of that guarantee
-is roughly a factor of two against NumPy.
+Both advantages are available to C++ in principle. The default kernel gives them up on
+purpose: it must reproduce the pure-Python engine bit for bit, and that engine uses the
+Mersenne Twister with Box-Muller and puts the spot outside the `exp`. The price of that
+guarantee is roughly a factor of two against NumPy.
+
+The first advantage is now available as an opt-in: `rng="fast"` swaps the generator and
+changes nothing else. "What the fast generator changes", at the end of this section,
+measures how much of the gap that closes.
 
 The remaining work, payoff plus statistics, costs about 1.5 ns in C++ and about
 1.1 ns in NumPy.
@@ -417,6 +524,74 @@ second by 10% in pure Python, 17% in C++ and 27% in NumPy. It roughly halves the
 error for the same number of paths, so it still wins clearly: in one second of C++,
 9.24 x 10^-4 with it against 1.78 x 10^-3 without.
 
+### What the fast generator changes
+
+Section 5 describes the second generator. This is what it changes, measured. Everything in
+this subsection comes from one session, recorded with the laptop on battery, Low Power
+Mode on. The tables above were recorded on battery, Low Power Mode off, so absolute
+numbers here are lower than there; read it by its ratios, which compare rows taken minutes
+apart.
+
+**The generators on their own** (`./build/rng_speed`: nothing in the loop but the draw):
+
+| Generator | ns per normal | Normals per second |
+| --- | ---: | ---: |
+| reproducible: mt19937_64 + Box-Muller | 14.10 | 70.9 M |
+| fast: xoshiro256++ + ziggurat | 2.11 | 473.2 M |
+
+The fast generator draws normals 6.7 times faster.
+
+**The kernel, step by step** (`./build/where_time_goes`). The steps after the draw are the
+same source code in both columns, because the path loop is one template:
+
+| C++ kernel, cost per path (ns) | reproducible | fast |
+| --- | ---: | ---: |
+| 64-bit draw, converted to a uniform | 2.93 | 1.34 |
+| transform to a normal (Box-Muller / ziggurat) | 11.54 | 1.53 |
+| exp for the terminal price | 7.50 | 7.53 |
+| payoff and Welford update | 3.00 | 2.62 |
+| **whole kernel, one path** | **24.97** | **13.03** |
+| whole kernel, one antithetic pair | 30.07 | 18.30 |
+| not used: exp with log(S) inside the exponent | 2.14 | 2.17 |
+
+The generator went from 14.5 ns to 2.9 ns per path, and the whole path from 25.0 ns to
+13.0 ns. The other steps moved by less than half a nanosecond. That is the point of
+changing one thing at a time: the saving can be attributed to the generator.
+
+**Through the public API** (`python -m derivkit compare`, 10^7 paths):
+
+| 10^7 paths | cpp | cpp/fast | numpy |
+| --- | ---: | ---: | ---: |
+| No variance reduction: paths per second | 39.82 M | 76.53 M | 84.59 M |
+| Antithetic + control variate: paths per second | 32.89 M | 53.94 M | 62.58 M |
+| Standard error after 1 s, no variance reduction | 2.32 x 10^-3 | 1.67 x 10^-3 | 1.60 x 10^-3 |
+| Standard error after 1 s, antithetic + control variate | 3.40 x 10^-4 | 2.62 x 10^-4 | 2.46 x 10^-4 |
+
+Across the four variance-reduction settings `cpp/fast` runs 1.64 to 1.92 times faster than
+`cpp`, and at 0.86 to 0.90 times the speed of `numpy`.
+
+**What this settles, and what it does not.**
+
+- The claim in "Why C++ is not faster than NumPy" was that the normal draw is the larger
+  of two costs. That is now tested rather than argued: taking it away, and nothing else,
+  made the kernel 1.92 times faster.
+- The fast draw is cheaper than NumPy's: 2.11 ns against 6.32 ns for `standard_normal` in
+  the same session. So the generator is no longer what separates the two.
+- The C++ kernel is still behind NumPy overall, at 0.86 to 0.90 times its speed. The
+  profile says why. With the generator down to 2.9 ns, `exp` is the largest step at 7.5
+  ns, 58% of the path. NumPy's `exp` step costs 2.73 ns, because its argument does not
+  change sign from path to path (the second difference in the list above).
+- The same `exp` with `log(S)` inside the exponent costs 2.17 ns here. If nothing else
+  changed, a fast path would cost about 7.7 ns instead of 13.0 ns, which would put it
+  ahead of NumPy's 11.8 ns. That kernel was not built or timed. It is left for a separate
+  change on purpose: two changes measured together cannot be told apart afterwards.
+
+An honest note on expectations. Before measuring, the guess was that a modern generator
+with a ziggurat would take the kernel well past NumPy. The draw did get that fast. The
+kernel did not, because the draw was only 58% of the path to begin with, and removing most
+of that leaves the other 42% untouched. A step that is 58% of the time can never buy more
+than a factor of 2.4, however fast it becomes (Amdahl's law).
+
 ## 8. What I would change to go faster
 
 In rough order of payoff. Only the items marked "measured" have numbers behind them from
@@ -427,10 +602,11 @@ this machine; the rest are standard techniques that were not built or timed here
    about 12.9 ns to about 10.1 ns; the whole kernel was not rebuilt and timed that way. It
    is a one-line change. It costs bit-for-bit agreement with the pure-Python engine (the
    two would differ in the last few digits), which is why it was not made.
-2. **Replace Box-Muller with a ziggurat or inverse-CDF sampler on a cheaper generator**
-   such as xoshiro256++ or PCG64. Measured only indirectly: NumPy's sampler of this kind
-   costs 3.2 ns per normal against 7.5 ns here. This gives up the shared stream with
-   Python, so the two back ends would agree statistically instead of exactly.
+2. **Replace Box-Muller with a ziggurat sampler on a cheaper generator.** Done, as
+   `rng="fast"` (xoshiro256++ with a 256-layer ziggurat). Measured: a normal draw went
+   from 14.10 ns to 2.11 ns and the kernel became 1.92 times faster (section 7, same
+   session for both). It gives up the shared stream with Python, which is why it is a
+   second generator beside the first rather than a replacement.
 3. **Compute the antithetic leg without a second `exp`.** The mirrored price is
    `S^2 exp(2 drift) / S_T`, one division instead of one `exp`. Not measured.
 4. **Replace Welford's per-sample update with block sums.** The update does two divisions
@@ -450,7 +626,10 @@ this machine; the rest are standard techniques that were not built or timed here
    Not measured; the result would no longer be portable to other CPUs.
 
 With items 1 and 2 the C++ kernel would do the same work as the NumPy kernel, and the
-comparison would then show what the language itself buys. That experiment was not run.
+comparison would then show what the language itself buys. Item 2 has now been run on its
+own. Item 1 is the next experiment: on top of the fast generator the step-level numbers
+suggest about 7.7 ns per path against NumPy's 11.8 ns, but that is an estimate from one
+step, not a measurement of a kernel.
 
 Two things that were tried during development and are already in the code:
 
@@ -463,11 +642,16 @@ Two things that were tried during development and are already in the code:
 ## 9. Ten interview questions
 
 **1. Your C++ is slower than NumPy. Why, and what did you learn?**
-NumPy's inner loops are compiled C, so it was never interpreter against compiled code.
-The gap is two algorithm choices: NumPy's ziggurat sampler is less than half the cost of
-Box-Muller, and its `exp` runs on a friendlier argument. My kernel keeps the slower
-choices because it must match the pure-Python engine bit for bit. The lesson is to
-profile before assuming the language is the bottleneck: here the random numbers were.
+NumPy's inner loops are compiled C, so it was never interpreter against compiled code. The
+gap is two algorithm choices: NumPy's ziggurat sampler is less than half the cost of
+Box-Muller, and its `exp` runs on a friendlier argument. My default kernel keeps the
+slower choices because it must match the pure-Python engine bit for bit. I then tested
+that explanation instead of leaving it as an argument: I added a second generator
+(xoshiro256++ with a ziggurat) and changed nothing else. The draw became 6.7 times faster
+and the kernel 1.92 times faster, which left it at 0.86 to 0.90 times NumPy's speed, with
+`exp` now the largest step. The lessons: profile before assuming the language is the
+bottleneck, change one thing at a time so the gain can be attributed, and remember that
+speeding up a step that is 58% of the time cannot gain more than a factor of 2.4.
 
 **2. Why did you write Box-Muller by hand instead of using `std::normal_distribution`?**
 The standard fixes the output of `std::mt19937_64` but not the algorithm inside
@@ -505,10 +689,15 @@ up the simulation. The sampler is not thread-safe: two threads advancing one sam
 would race on its state. Each pricing call creates its own sampler and never shares it.
 
 **8. How do you know the C++ is correct?**
-Three layers. It reproduces 20 stored pure-Python results to a relative tolerance of
-1 x 10^-9, and exactly on the development machine with two compilers. Every back end must
-land within 4 standard errors of the Black-Scholes closed form. And CI builds with GCC
-and Clang and fails if any back end is missing rather than skipping its tests.
+Three layers. With its default generator it reproduces 20 stored pure-Python results to a
+relative tolerance of 1 x 10^-9, and exactly on the development machine with two
+compilers. Every back end must land within 4 standard errors of the Black-Scholes closed
+form. And CI builds with GCC and Clang, fails if any back end is missing rather than
+skipping its tests, and runs the suite again under AddressSanitizer and
+UndefinedBehaviorSanitizer. The fast generator cannot be checked against Python's
+numbers, so it is checked as a distribution instead: a million draws must pass moment,
+chi-square and tail tests, and its prices must sit within 4 standard errors of
+Black-Scholes.
 
 **9. What is Welford's algorithm and why use it?**
 An update rule for the running mean and variance: `mean += (x - mean) / n`, and the sum

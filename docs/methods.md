@@ -168,8 +168,17 @@ control-variate estimate above is then formed by the same code for all three.
   pairwise form of Welford's update (Chan, Golub and LeVeque), so no
   \(\sum x^2 - n\bar{x}^2\) cancellation occurs. Its prices agree with the
   other two within the standard error, not digit for digit.
+- `cpp` has a second generator, chosen with `rng="fast"`: xoshiro256++
+  (Blackman and Vigna) seeded through SplitMix64, with the ziggurat method of
+  Marsaglia and Tsang on 256 layers for the normal draw. The layer and the
+  position within it come from separate bits of one 64-bit draw (Doornik). The
+  rest of the path loop is the same code as the default. It is repeatable for a
+  seed, and it agrees with the other generators within the standard error, not
+  digit for digit. The default, `rng="reproducible"`, is the mt19937_64 stream
+  described above.
 
-`python -m derivkit compare` measures the three against each other; see
+`python -m derivkit compare` measures the three against each other, and the
+fast generator too when `cpp/fast` is named; see
 [benchmarks/RESULTS.md](../benchmarks/RESULTS.md) and
 [cpp_walkthrough.md](cpp_walkthrough.md).
 
@@ -182,5 +191,8 @@ control-variate estimate above is then formed by the same code for all three.
 - B. Kamrad, P. Ritchken, *Multinomial approximating models*, Management Science 1991.
 - P. Glasserman, *Monte Carlo Methods in Financial Engineering*, Springer 2003.
 - T. F. Chan, G. H. Golub, R. J. LeVeque, *Updating formulae and a pairwise algorithm for computing sample variances*, COMPSTAT 1982.
+- G. Marsaglia, W. W. Tsang, *The ziggurat method for generating random variables*, Journal of Statistical Software 2000.
+- J. A. Doornik, *An improved ziggurat method to generate normal random samples*, University of Oxford 2005.
+- D. Blackman, S. Vigna, *Scrambled linear pseudorandom number generators*, ACM Transactions on Mathematical Software 2021.
 - A. G. Z. Kemna, A. C. F. Vorst, *A pricing method for options based on average asset values*, JBF 1990.
 - E. G. Haug, *The Complete Guide to Option Pricing Formulas*, McGraw-Hill.

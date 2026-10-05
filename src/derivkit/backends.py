@@ -17,9 +17,9 @@ The cpp kernel also has a choice of random number generator, `rng`:
 
     "reproducible"  the default: mt19937_64 + Box-Muller, the same stream as "python",
                     so the two return the same price for the same seed
-    "fast"          xoshiro256++ + ziggurat: about twice the paths per second, and a
-                    stream of its own. Repeatable for a seed, but it matches neither
-                    "python" nor "numpy" digit for digit
+    "fast"          xoshiro256++ + ziggurat: 1.6 to 1.9 times the paths per second
+                    (benchmarks/RESULTS.md), and a stream of its own. Repeatable for a
+                    seed, but it matches neither "python" nor "numpy" digit for digit
 
 "python" and "numpy" have one generator each, so they accept only the default.
 """

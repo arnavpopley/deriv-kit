@@ -56,7 +56,9 @@ What the numbers say:
   while moving from pure Python to C++ cuts it about 8 times.
 - **Why C++ does not beat NumPy here:** NumPy's inner loops are compiled code too, and it
   uses a cheaper normal sampler. [docs/cpp_walkthrough.md](docs/cpp_walkthrough.md)
-  shows where the time goes in each back end and what would make the C++ faster.
+  shows where the time goes in each back end and what would make the C++ faster. One of
+  those changes, a cheaper sampler, has since been added as an option and measured: see
+  [The fast generator](#the-fast-generator) below.
 
 ### Build the C++ back end
 
@@ -89,6 +91,7 @@ cfg = McConfig(paths=1_000_000, seed=1, vr=VarianceReduction.ANTITHETIC)
 european(spec, cfg)                    # "python": the default, standard library only
 european(spec, cfg, backend="numpy")   # needs NumPy
 european(spec, cfg, backend="cpp")     # needs the built extension
+european(spec, cfg, backend="cpp", rng="fast")   # cpp with its fast generator
 ```
 
 `european`, `european_adaptive` and `arithmetic_asian` all take `backend`. The three back
@@ -97,11 +100,70 @@ ends accept the same arguments and return the same `PricingResult`. With the sam
 price differs within the standard error. Asking for a back end that is not installed
 raises `BackendUnavailableError` with the command that installs or builds it.
 
+`rng` chooses the random number generator of the `cpp` back end. The default,
+`"reproducible"`, is the one that matches `python`. `"fast"` is described in the next
+section. `python` and `numpy` have one generator each, so `rng="fast"` with either of them
+raises `ValueError`.
+
+### The fast generator
+
+The `cpp` back end has two random number generators, and it keeps both on purpose.
+
+- **`rng="reproducible"`** (the default) is mt19937_64 with Box-Muller, the same stream as
+  the `python` back end. It is what lets the tests check that C++ and Python return the
+  same numbers, not merely similar ones. It is slow by design: Box-Muller calls `log`,
+  `sqrt`, `sin` and `cos`.
+- **`rng="fast"`** is xoshiro256++ with a ziggurat sampler, which needs none of those
+  calls for 98.5% of draws. Nothing else in the path loop changes, so the difference
+  between the two is the cost of the generator and nothing else.
+
+`rng="fast"` is repeatable: one seed gives one price, run after run. It does **not** match
+`python`, `numpy` or the reproducible generator for the same seed. The prices agree within
+the standard error, not digit for digit. Use the default when a result has to be checked
+against the Python engine, and `fast` when paths per second matter more.
+
+**Before and after.** These rows come from one session, recorded with the laptop on
+battery, Low Power Mode on. The tables above were recorded on battery, Low Power Mode off,
+so absolute numbers here are lower than there; read this table by its ratios, which
+compare rows taken minutes apart. Full tables are in the last section of
+[benchmarks/RESULTS.md](benchmarks/RESULTS.md#the-fast-generator-for-the-c-back-end).
+
+| | cpp, reproducible | cpp, fast | numpy |
+| --- | ---: | ---: | ---: |
+| Normal draws on their own, per second | 70.9 M | 473.2 M | 158.2 M |
+| 10^7 paths, no variance reduction: paths per second | 39.82 M | 76.53 M | 84.59 M |
+| 10^7 paths, antithetic + control variate: paths per second | 32.89 M | 53.94 M | 62.58 M |
+| Standard error after 1 s, no variance reduction | 2.32 x 10^-3 | 1.67 x 10^-3 | 1.60 x 10^-3 |
+| Standard error after 1 s, antithetic + control variate | 3.40 x 10^-4 | 2.62 x 10^-4 | 2.46 x 10^-4 |
+
+The first row times the draw alone: `benchmarks/rng_speed.cpp` for the two C++ generators,
+and `standard_normal` filling 65,536 numbers at a time for NumPy
+(`benchmarks/where_time_goes.py`).
+
+What the numbers say:
+
+- **The generator was the largest single cost in the C++ kernel.** On their own, normal
+  draws are 6.7 times faster with the fast generator. In the kernel that removes 11.6 ns
+  of a 25.0 ns path, and the same paths run 1.64 to 1.92 times faster across the four
+  variance-reduction settings.
+- **It is still behind NumPy, at 0.86 to 0.90 times its speed.** The generator is no
+  longer the reason: a fast normal draw costs 2.11 ns against 6.32 ns for NumPy's. What is
+  left is `exp`, now 7.5 ns of a 13.0 ns path, which NumPy calls with an argument that
+  this machine's `exp` handles about 3.5 times faster. That is a separate change and is
+  deliberately not made here, so that the effect of the generator can be read on its own.
+- **In accuracy per second** the fast generator lowers the standard error reached in one
+  second by a factor of 1.39 with no variance reduction and 1.30 with both methods on, as
+  expected from the square root of the speed ratio.
+
+[docs/cpp_walkthrough.md](docs/cpp_walkthrough.md) explains both generators and shows the
+profile behind these statements.
+
 ### Rerun the comparison
 
 ```bash
 python -m derivkit compare                      # quick: 10^5 paths, no variance reduction
 python -m derivkit compare --paths 1e6 --vr all --budgets 0.1 1
+python -m derivkit compare --backends python numpy cpp cpp/fast   # add the fast generator
 
 # The full run behind benchmarks/RESULTS.md and the plot above (8 to 15 minutes):
 python -m derivkit compare --paths 1e5 1e6 1e7 --vr all --budgets 0.1 1 10 \
@@ -250,7 +312,8 @@ American put, S = 36, K = 40, r = 6%, σ = 20%, T = 1:
 Early-exercise premium ≈ **0.642**.
 
 Variance reduction, 50,000 European paths, seed 42 (`python examples/variance_reduction.py`).
-The `python` and `cpp` back ends draw N(0,1) from mt19937_64 + Box-Muller:
+The `python` back end, and `cpp` with its default generator, draw N(0,1) from mt19937_64 +
+Box-Muller:
 
 | Method | Price | Std. err. | Variance ratio |
 | --- | ---: | ---: | ---: |
@@ -274,7 +337,8 @@ Arithmetic Asian, 50 fixings, 20,000 paths. Geometric closed form = 5.641058. Th
 src/derivkit/       library
 cpp/                C++20 Monte Carlo kernel and its pybind11 binding
 CMakeLists.txt      builds the C++ extension
-benchmarks/         RESULTS.md, the plot, and where-the-time-goes profilers
+benchmarks/         RESULTS.md, the plot, the where-the-time-goes profilers and the
+                    generator microbenchmark
 tests/              pytest suite
 examples/           comparison, American put, VR study, convergence, implied vol,
                     Groww NIFTY chain
@@ -336,9 +400,13 @@ pip install -e ".[dev]"
 pytest
 ```
 
-CI runs pytest on Python 3.11, 3.12 and 3.13 with no optional dependencies, then builds the C++
-extension with GCC and with Clang and runs the suite again with all three back ends
-required:
+CI runs pytest on Python 3.11, 3.12 and 3.13 with no optional dependencies. It then builds
+the C++ extension with GCC and with Clang on each of those versions, with warnings as
+errors, and runs the suite again with all three back ends required. A last set of jobs
+repeats that with the extension built under AddressSanitizer and
+UndefinedBehaviorSanitizer, which stop the run on a memory error or undefined behaviour.
+
+To run the suite locally with every back end required:
 
 ```bash
 DERIVKIT_REQUIRE_BACKENDS=numpy,cpp pytest
