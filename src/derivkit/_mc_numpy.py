@@ -131,7 +131,8 @@ def asian_moments(
     drift = (spec.rate - spec.dividend - 0.5 * spec.vol * spec.vol) * dt
     vol_dt = spec.vol * math.sqrt(dt)
     scale = (0.5 if antithetic else 1.0) * discount_factor(spec.rate, spec.time)
-    spot, strike, is_call = spec.spot, spec.strike, spec.type is OptionType.CALL
+    strike, is_call = spec.strike, spec.type is OptionType.CALL
+    log_spot = math.log(spec.spot)
     rows = max(1, _CHUNK // steps)
     rng = _generator(seed)
     acc = WelfordPair()
@@ -143,13 +144,15 @@ def asian_moments(
         """Discounted geometric- and arithmetic-average payoffs for one set of shocks."""
         logs = w[: shocks.shape[0]]
         np.add(shocks, drift, out=logs)
-        np.cumsum(logs, axis=1, out=logs)  # log(S_k / S_0) at each fixing
+        # Start every path at log(S_0), so the running sum is log(S_k) itself. Working
+        # with log(S_k / S_0) and multiplying by S_0 afterwards would overflow whenever
+        # that ratio is huge, even when the price S_k is an ordinary finite number.
+        logs[:, 0] += log_spot
+        np.cumsum(logs, axis=1, out=logs)  # log(S_k) at each fixing
         logs.mean(axis=1, out=geo)
-        np.exp(geo, out=geo)
-        geo *= spot
-        np.exp(logs, out=logs)  # S_k / S_0
+        np.exp(geo, out=geo)  # geometric average of the S_k
+        np.exp(logs, out=logs)  # S_k
         logs.mean(axis=1, out=arith)
-        arith *= spot
         _payoff(geo, strike, is_call, out=geo)
         _payoff(arith, strike, is_call, out=arith)
         geo *= scale

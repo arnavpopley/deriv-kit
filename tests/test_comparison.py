@@ -211,3 +211,11 @@ def test_plot_is_written_without_touching_the_matplotlib_backend(tmp_path):
     write_report(tmp_path / "R.md", "python -m derivkit compare", None, report, png)
     text = (tmp_path / "R.md").read_text()
     assert "![Standard error against time budget](plots/accuracy.png)" in text
+
+
+def test_plotting_an_empty_report_says_why(tmp_path):
+    pytest.importorskip("matplotlib")
+    empty = derivkit.accuracy_per_second(SPEC, budgets=(0.005,), vr_methods=[], repeats=1)
+    assert empty.rows == []
+    with pytest.raises(ValueError, match="no measurements"):
+        plot_accuracy_vs_time(empty, tmp_path / "empty.png")

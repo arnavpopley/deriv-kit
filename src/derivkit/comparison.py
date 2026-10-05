@@ -759,6 +759,8 @@ def plot_accuracy_vs_time(report: BudgetReport, path: str | os.PathLike[str]) ->
 
     methods = list(dict.fromkeys(r.vr for r in report.rows))
     names = list(dict.fromkeys(r.backend for r in report.rows))
+    if not methods:
+        raise ValueError("cannot plot a report with no measurements")
     cols = 2 if len(methods) > 1 else 1
     nrows = math.ceil(len(methods) / cols)
     fonts = {

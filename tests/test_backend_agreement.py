@@ -220,3 +220,15 @@ except KeyboardInterrupt:
     )
     assert done.stdout.startswith("interrupted"), done.stderr
     assert float(done.stdout.split()[1]) < 5.0
+
+
+def test_a_finite_price_is_not_lost_to_overflow_on_the_way(backend):
+    """A tiny spot with a huge upward drift: S_k / S_0 overflows a double at the second
+    fixing, but S_k itself is an ordinary number, so every back end must price it."""
+    spec = VanillaSpec(spot=1e-300, strike=100.0, rate=0.0, dividend=-400.0, vol=0.1, time=2.0)
+    cfg = AsianConfig(mc=McConfig(paths=4000, seed=SEED), steps=2)
+    r = arithmetic_asian(spec, cfg, backend=backend)
+    reference = arithmetic_asian(spec, cfg)  # the pure-Python engine
+    assert math.isfinite(r.value) and r.value > 0.0
+    combined = math.hypot(r.error_estimate, reference.error_estimate)
+    assert abs(r.value - reference.value) <= SIGMAS * combined
