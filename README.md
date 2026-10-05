@@ -13,8 +13,9 @@ NumPy and C++.
 
 `derivkit` prices the same option with three interchangeable Monte Carlo back ends and
 measures them against each other. Everything below was measured on one machine (Apple M5,
-one thread, on battery with Low Power Mode off). The full tables, the exact command and
-the environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+one thread). The first two tables were recorded on battery with Low Power Mode off; the
+section on the fast generator states its own conditions. The full tables, the exact
+commands and the environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 
 ![Standard error reached in a fixed time budget, per back end and variance-reduction method](benchmarks/accuracy_vs_time.png)
 

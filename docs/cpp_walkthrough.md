@@ -90,9 +90,10 @@ py::class_<mc::AsianSampler>(m, "AsianSampler") ...     // the same again for As
 m.def("build_info", ...);                               // a plain function
 ```
 
-In the file this registration is written once, as a small function template, and used
-four times: `EuropeanSampler` and `AsianSampler` for the default generator, and
-`FastEuropeanSampler` and `FastAsianSampler` for the fast one (section 5).
+In the file this registration is written as two small function templates, one for
+European samplers and one for Asian ones, and each is used twice: `EuropeanSampler` and
+`AsianSampler` for the default generator, `FastEuropeanSampler` and `FastAsianSampler`
+for the fast one (section 5).
 
 pybind11 is a header-only C++ library. For each `.def` it generates a small wrapper
 function that Python can call.
@@ -346,14 +347,16 @@ fast generator existed. The golden tests confirm that: they did not change and s
 generator (build it from a seed, `uniform()`, `normal()`, `fill(buffer)`). A type that
 lacks one of these is rejected with a short message at the line that tried to use it.
 
-One thing learned while writing `FastNormalRng::fill`. The first version called a member
-function for the uncommon cases and was barely faster than half of what it should have
-been. Once a member function receives `this`, the compiler has to assume the function
-may read or change the generator's state, so it kept the four state words in memory and
-reloaded them for every draw. Copying the state into local variables for the loop, and
-handing it to the member function only when an uncommon case occurs, lets the compiler
-keep it in CPU registers. That one change more than doubled the speed of the loop. It is
-the same idea as the local copies in `advance` (section 4), one level down.
+One thing learned while writing `FastNormalRng::fill`. The first version drew straight
+from the member variables and called a member function for the uncommon cases. It ran at
+less than half the speed the loop reaches now. The explanation that fits: once a member
+function receives `this`, the compiler has to assume that function may read or change
+the generator's state, so it keeps the four state words in memory and reloads them for
+every draw. Copying the state into local variables for the loop, and handing it to the
+member function only when an uncommon case occurs, lets the compiler keep it in CPU
+registers. The speed-up was measured; the cause was not confirmed by reading the
+generated code. It is the same idea as the local copies in `advance` (section 4), one
+level down.
 
 ### Why keep both
 
