@@ -1,5 +1,6 @@
 """derivkit: European and American pricing with explicit numerical error control."""
 
+from derivkit.backends import BACKENDS, BackendUnavailableError, available_backends
 from derivkit.black_scholes import (
     BlackSpec,
     Greeks,
@@ -43,10 +44,24 @@ from derivkit.types import (
 
 __version__ = "2.0.0"
 
+
+def __getattr__(name: str):
+    # compare and accuracy_per_second live in derivkit.comparison, which pulls in
+    # subprocess, statistics and platform. Loading it on first use keeps `import derivkit`
+    # as light as it was before the benchmarking harness existed.
+    if name in ("compare", "accuracy_per_second"):
+        from derivkit import comparison
+
+        return getattr(comparison, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "AdaptiveMcConfig",
     "AdaptiveTreeConfig",
     "AsianConfig",
+    "BACKENDS",
+    "BackendUnavailableError",
     "BlackSpec",
     "CallPutQuote",
     "ExerciseStyle",
@@ -64,6 +79,7 @@ __all__ = [
     "VarianceReduction",
     "adaptive",
     "arithmetic_asian",
+    "available_backends",
     "cox_ross_rubinstein",
     "d1_d2",
     "discount_factor",
@@ -87,5 +103,7 @@ __all__ = [
     "upper_bound",
     "validate",
     "validate_black",
+    "accuracy_per_second",
+    "compare",
     "__version__",
 ]

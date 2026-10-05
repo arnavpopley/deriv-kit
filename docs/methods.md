@@ -153,6 +153,26 @@ variance, discounted at \(r\).
 falls below a tolerance or a path cap is hit - the Monte Carlo counterpart
 of adapting an integrator’s step size to a local error estimate.
 
+### Back ends
+
+The three Monte Carlo pricers take `backend="python"` (default), `"numpy"` or
+`"cpp"`. A back end only runs the path loop and returns the count, the two
+means and the three centred sums of the paired samples \((X, Y)\); the
+control-variate estimate above is then formed by the same code for all three.
+
+- `python` and `cpp` draw \(Z\) from mt19937_64 with Box-Muller and update the
+  moments one sample at a time with Welford's rule. Given a seed they produce
+  the same numbers.
+- `numpy` draws \(Z\) from PCG64 with NumPy's ziggurat sampler, in chunks of
+  65,536 paths. Each chunk is centred on its own means and merged with the
+  pairwise form of Welford's update (Chan, Golub and LeVeque), so no
+  \(\sum x^2 - n\bar{x}^2\) cancellation occurs. Its prices agree with the
+  other two within the standard error, not digit for digit.
+
+`python -m derivkit compare` measures the three against each other; see
+[benchmarks/RESULTS.md](../benchmarks/RESULTS.md) and
+[cpp_walkthrough.md](cpp_walkthrough.md).
+
 ## References
 
 - F. Black, M. Scholes, *The pricing of options and corporate liabilities*, JPE 1973.
@@ -161,5 +181,6 @@ of adapting an integrator’s step size to a local error estimate.
 - D. Leisen, M. Reimer, *Binomial models for option valuation*, OR Spektrum 1996.
 - B. Kamrad, P. Ritchken, *Multinomial approximating models*, Management Science 1991.
 - P. Glasserman, *Monte Carlo Methods in Financial Engineering*, Springer 2003.
+- T. F. Chan, G. H. Golub, R. J. LeVeque, *Updating formulae and a pairwise algorithm for computing sample variances*, COMPSTAT 1982.
 - A. G. Z. Kemna, A. C. F. Vorst, *A pricing method for options based on average asset values*, JBF 1990.
 - E. G. Haug, *The Complete Guide to Option Pricing Formulas*, McGraw-Hill.
