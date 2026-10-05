@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here.
 
-## Unreleased
+## 2.1.0 - 2026-10-05
 
 - Monte Carlo back ends: `european`, `european_adaptive` and
   `arithmetic_asian` take `backend="python"` (default), `"numpy"` or `"cpp"`
@@ -16,6 +16,7 @@ All notable changes to this project are documented here.
   instead of once per path; results are unchanged
 - CI builds the extension with GCC and Clang and tests all three back ends, and builds
   and installs a wheel
+- CI also runs the core suite on Python 3.13
 - Fixed: `pip install .` and wheel builds failed because the NIFTY fixture was added to
   the wheel twice
 
@@ -24,8 +25,6 @@ All notable changes to this project are documented here.
 Python 3.11 package. Numerical engines, tests, and the Groww example keep
 the same formulas, residuals, and NSE clock as 1.x. Monte Carlo uses
 mt19937_64 + Box-Muller.
-
-## Unreleased (folded into 2.0.0)
 
 - Black-76 on a forward, with an identity to Black-Scholes-Merton when
   `F = S e^{(r-q)T}` and `DF = e^{-rT}`

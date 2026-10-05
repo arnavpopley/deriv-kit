@@ -4,7 +4,9 @@ Python toolkit for pricing derivative contracts with **explicit numerical error 
 and a built-in comparison of three interchangeable Monte Carlo back ends: pure Python,
 NumPy and C++.
 
+[![CI](https://github.com/arnavpopley/deriv-kit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/arnavpopley/deriv-kit/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](pyproject.toml)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](cpp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Back-end comparison
@@ -334,7 +336,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-CI runs pytest on Python 3.11 and 3.12 with no optional dependencies, then builds the C++
+CI runs pytest on Python 3.11, 3.12 and 3.13 with no optional dependencies, then builds the C++
 extension with GCC and with Clang and runs the suite again with all three back ends
 required:
 
