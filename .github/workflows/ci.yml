@@ -31,19 +31,21 @@ jobs:
           python -m derivkit compare --paths 1e4 --repeats 3
 
   # The job above proves the core works with no NumPy and no compiler. This one builds
-  # the C++ extension with each compiler and requires all three back ends to be present,
-  # so a back end that failed to build is a failure, not a skipped test.
+  # the C++ extension with each compiler on each Python version, with warnings as errors,
+  # and requires all three back ends to be present, so a back end that failed to build is
+  # a failure, not a skipped test.
   backends:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         compiler: [g++, clang++]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Install
         run: pip install -e ".[dev,numpy,cpp]"
       - name: Build the C++ extension
@@ -58,4 +60,57 @@ jobs:
           DERIVKIT_REQUIRE_BACKENDS: numpy,cpp
         run: pytest
       - name: Compare (smoke run)
-        run: python -m derivkit compare --paths 1e5 --vr all --repeats 3
+        run: >
+          python -m derivkit compare --backends python numpy cpp cpp/fast
+          --paths 1e5 --vr all --repeats 3
+      # The two C++ benchmark programs are not built by default; build and run them here
+      # so they keep compiling. Timings from a shared CI machine mean nothing.
+      - name: Generator microbenchmark and profile (smoke run)
+        run: |
+          cmake --build build --parallel --target rng_speed where_time_goes
+          ./build/rng_speed
+          ./build/where_time_goes
+
+  # The same tests once more, with the extension built under AddressSanitizer and
+  # UndefinedBehaviorSanitizer. These stop the run on a memory error (reading past the
+  # end of an array, using freed memory) or on undefined behaviour (signed overflow, a
+  # bad shift or cast) that an ordinary build would let through silently.
+  sanitizers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev,numpy,cpp]"
+      - name: Build the C++ extension with sanitizers
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: |
+          $CXX --version
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDERIVKIT_WERROR=ON -DDERIVKIT_SANITIZE=ON
+          cmake --build build --parallel
+      - name: Test all back ends under the sanitizers
+        env:
+          CXX: ${{ matrix.compiler }}
+          DERIVKIT_REQUIRE_BACKENDS: numpy,cpp
+          # Python itself leaks by design at exit; the leak check would only report that.
+          ASAN_OPTIONS: detect_leaks=0
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          # Python is not built with the sanitizer, so the sanitizer's run-time library has
+          # to be loaded before anything else. Each compiler ships its own.
+          if [ "$CXX" = "g++" ]; then
+            runtime=$($CXX -print-file-name=libasan.so)
+          else
+            runtime=$($CXX -print-file-name=libclang_rt.asan-x86_64.so)
+          fi
+          echo "sanitizer run-time library: $runtime"
+          test -f "$runtime"
+          LD_PRELOAD="$runtime" python -m pytest

@@ -23,6 +23,24 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(DERIVKIT_WERROR "Treat warnings as errors" OFF)
+option(DERIVKIT_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+
+# Sanitizers add run-time checks for memory errors (reading past an array, using freed
+# memory) and undefined behaviour (signed overflow, bad shifts, bad casts). They make the
+# code several times slower, so this is a testing build, never a benchmarking one. The
+# Python interpreter itself is not built this way, so the sanitizer's run-time library has
+# to be loaded first; .github/workflows/ci.yml shows how.
+if(DERIVKIT_SANITIZE)
+    set(DERIVKIT_SANITIZE_FLAGS
+        -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+    add_compile_options(${DERIVKIT_SANITIZE_FLAGS})
+    add_link_options(${DERIVKIT_SANITIZE_FLAGS})
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        # Clang links its run-time library statically unless told otherwise; a shared one
+        # is what can be loaded ahead of Python. (Apple clang and GCC already use one.)
+        add_link_options(-shared-libasan)
+    endif()
+endif()
 
 # Use the interpreter of the active virtual environment, or pass -DPython_EXECUTABLE=...
 find_package(Python 3.11 REQUIRED COMPONENTS Interpreter Development.Module)
@@ -63,8 +81,9 @@ target_compile_options(_mc_cpp_ext PRIVATE ${DERIVKIT_KERNEL_FLAGS} ${DERIVKIT_W
 # Record the optimisation-relevant flags inside the module (see build_info()).
 string(TOUPPER "${CMAKE_BUILD_TYPE}" _config)
 list(JOIN DERIVKIT_KERNEL_FLAGS " " _kernel_flags)
+list(JOIN DERIVKIT_SANITIZE_FLAGS " " _sanitize_flags)  # empty unless DERIVKIT_SANITIZE is on
 string(STRIP
-    "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${_config}} ${CMAKE_CXX20_STANDARD_COMPILE_OPTION} ${_kernel_flags}"
+    "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${_config}} ${CMAKE_CXX20_STANDARD_COMPILE_OPTION} ${_kernel_flags} ${_sanitize_flags}"
     _all_flags
 )
 target_compile_definitions(_mc_cpp_ext PRIVATE
@@ -80,6 +99,12 @@ add_executable(where_time_goes EXCLUDE_FROM_ALL
 )
 target_include_directories(where_time_goes PRIVATE cpp)
 target_compile_options(where_time_goes PRIVATE ${DERIVKIT_KERNEL_FLAGS} ${DERIVKIT_WARNING_FLAGS})
+
+# Optional microbenchmark of the two normal generators on their own (not built by default):
+#   cmake --build build --target rng_speed && ./build/rng_speed
+add_executable(rng_speed EXCLUDE_FROM_ALL benchmarks/rng_speed.cpp)
+target_include_directories(rng_speed PRIVATE cpp)
+target_compile_options(rng_speed PRIVATE ${DERIVKIT_KERNEL_FLAGS} ${DERIVKIT_WARNING_FLAGS})
 
 # Put the built module next to the Python sources so `import derivkit._mc_cpp_ext` works
 # for an editable install and for pytest without an install step.
