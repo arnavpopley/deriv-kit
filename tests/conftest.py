@@ -19,6 +19,15 @@ if REQUIRED - set(BACKENDS):
     )
 
 
+# The cpp back end has two generators (derivkit.backends.RNGS). Tests that compare streams
+# digit for digit (the golden numbers, python against cpp) apply to the first group only.
+# "fast" is a different stream by design, so those tests leave it out here, by name,
+# instead of skipping it at run time. tests/test_fast_rng.py holds what "fast" is tested
+# for, and checks that every generator is in exactly one of these two groups.
+SAME_STREAM_RNGS = ("reproducible",)
+OWN_STREAM_RNGS = ("fast",)
+
+
 def require_backend(name: str) -> str:
     if name not in available_backends():
         if name in REQUIRED:

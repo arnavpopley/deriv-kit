@@ -9,6 +9,7 @@ real behaviour change (different stream, different formula) moves these numbers 
 """
 
 import pytest
+from conftest import SAME_STREAM_RNGS
 
 from derivkit.monte_carlo import (
     AdaptiveMcConfig,
@@ -103,8 +104,9 @@ def test_pure_python_matches_golden(case):
     assert_matches(run_case(*case), GOLDEN[case], REL)
 
 
+@pytest.mark.parametrize("rng", SAME_STREAM_RNGS)  # rng="fast" is exempt: see conftest.py
 @pytest.mark.parametrize("case", list(GOLDEN), ids=lambda c: "-".join(c))
-def test_cpp_reproduces_the_pure_python_numbers(case, cpp_backend):
+def test_cpp_reproduces_the_pure_python_numbers(case, rng, cpp_backend):
     """The C++ kernel uses the same generator and the same arithmetic in the same order,
     so it must land on the pure-Python numbers, not merely near them."""
-    assert_matches(run_case(*case, backend=cpp_backend), GOLDEN[case], REL)
+    assert_matches(run_case(*case, backend=cpp_backend, rng=rng), GOLDEN[case], REL)

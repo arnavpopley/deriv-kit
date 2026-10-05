@@ -7,9 +7,11 @@ import math
 import shlex
 import sys
 
-from derivkit.backends import BACKENDS, BackendUnavailableError
+from derivkit.backends import BackendUnavailableError
 from derivkit.comparison import (
     DEFAULT_BUDGETS,
+    FAST_CPP,
+    VARIANTS,
     VR_METHODS,
     accuracy_per_second,
     compare,
@@ -90,8 +92,9 @@ def _parser() -> argparse.ArgumentParser:
         help="variance-reduction methods to run (default: none)",
     )
     run.add_argument(
-        "--backends", nargs="+", choices=BACKENDS, default=None,
-        help="back ends to compare (default: every one that is available)",
+        "--backends", nargs="+", choices=VARIANTS, default=None,
+        help="back ends to compare (default: every one that is available). "
+        f"{FAST_CPP} is the cpp back end with its fast generator; it runs only when named",
     )
     run.add_argument(
         "--budgets", type=_seconds, nargs="*", default=None, metavar="SECONDS",

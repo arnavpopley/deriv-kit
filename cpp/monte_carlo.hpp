@@ -31,9 +31,14 @@ struct VanillaSpec {
 /// the same as one big call.
 ///
 /// Not thread-safe: one sampler belongs to one pricing call.
-class EuropeanSampler {
+///
+/// `Rng` is the generator the paths are drawn from. A template is a class written once
+/// with the type left open; the compiler makes a separate, fully inlined copy of the path
+/// loop for each generator, so choosing one costs nothing at run time.
+template <NormalGenerator Rng>
+class BasicEuropeanSampler {
 public:
-    EuropeanSampler(const VanillaSpec& spec, std::uint64_t seed, bool antithetic);
+    BasicEuropeanSampler(const VanillaSpec& spec, std::uint64_t seed, bool antithetic);
 
     /// Simulate `paths` more paths. With antithetic on, each path is a +Z / -Z pair.
     void advance(std::uint64_t paths);
@@ -51,7 +56,7 @@ private:
     double df_;      // exp(-r T)
     bool is_call_;
     bool antithetic_;
-    NormalRng rng_;
+    Rng rng_;
     WelfordPair acc_;
 };
 
@@ -60,11 +65,12 @@ private:
 ///
 /// Like EuropeanSampler it keeps its generator and moments between calls, so `advance`
 /// can be called in slices and the result is the same as one big call. Not thread-safe.
-class AsianSampler {
+template <NormalGenerator Rng>
+class BasicAsianSampler {
 public:
     /// Throws std::invalid_argument if `steps` is zero.
-    AsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t seed,
-                 bool antithetic);
+    BasicAsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t seed,
+                      bool antithetic);
 
     /// Simulate `paths` more paths. With antithetic on, each path is a +Z / -Z pair.
     void advance(std::uint64_t paths);
@@ -84,8 +90,22 @@ private:
     // be a std::array. It is the one heap allocation of the sampler: made once, in the
     // constructor, and reused by every path.
     std::vector<double> z_;
-    NormalRng rng_;
+    Rng rng_;
     WelfordPair acc_;
 };
+
+// The two generators each sampler is built for. "Reproducible" is the default everywhere:
+// it draws the same stream as the pure-Python engine. "Fast" has its own stream.
+using EuropeanSampler = BasicEuropeanSampler<NormalRng>;
+using FastEuropeanSampler = BasicEuropeanSampler<FastNormalRng>;
+using AsianSampler = BasicAsianSampler<NormalRng>;
+using FastAsianSampler = BasicAsianSampler<FastNormalRng>;
+
+// The path loops are compiled once, in monte_carlo.cpp, for exactly these four types.
+// `extern template` tells every other file to use those copies instead of making its own.
+extern template class BasicEuropeanSampler<NormalRng>;
+extern template class BasicEuropeanSampler<FastNormalRng>;
+extern template class BasicAsianSampler<NormalRng>;
+extern template class BasicAsianSampler<FastNormalRng>;
 
 }  // namespace derivkit::mc

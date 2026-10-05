@@ -58,6 +58,12 @@ VR_LABELS = {
 
 DEFAULT_BUDGETS = (0.1, 1.0, 10.0)
 
+# What can be compared, by row label: each back end, plus "cpp/fast", which is the cpp back
+# end with `rng="fast"`. The fast generator has a stream of its own, so it is measured only
+# when it is asked for by name; the default stays the three back ends.
+FAST_CPP = "cpp/fast"
+VARIANTS: tuple[str, ...] = (*_backends.BACKENDS, FAST_CPP)
+
 Progress = Callable[[str], None]
 
 
@@ -137,6 +143,12 @@ def _timed(
 _PILOT_SECONDS = 0.02
 
 
+def _engine(name: str) -> dict[str, str]:
+    """Keyword arguments for `european` behind a row label: "cpp/fast" is cpp with rng "fast"."""
+    backend, _, rng = name.partition("/")
+    return {"backend": backend, "rng": rng} if rng else {"backend": backend}
+
+
 def _rate(
     spec: VanillaSpec, cfg: McConfig, backend: str, target_seconds: float, limit: int | None = None
 ) -> tuple[float, int]:
@@ -151,7 +163,7 @@ def _rate(
     pilot = 20_000 if cap is None else min(20_000, cap)
     while True:
         start = time.perf_counter()
-        european(spec, McConfig(paths=pilot, seed=cfg.seed, vr=cfg.vr), backend=backend)
+        european(spec, McConfig(paths=pilot, seed=cfg.seed, vr=cfg.vr), **_engine(backend))
         elapsed = time.perf_counter() - start
         if elapsed >= _PILOT_SECONDS or (cap is not None and pilot >= cap):
             break
@@ -165,7 +177,9 @@ def _resolve_backends(backends: Iterable[str] | None) -> tuple[str, ...]:
         return _backends.available_backends()
     names = tuple(backends)
     for name in names:
-        _backends.kernel(name)  # raises a clear error if unknown or unavailable
+        engine = _engine(name)
+        _backends.kernel(engine["backend"])  # raises a clear error if unknown or unavailable
+        _backends.rng_arguments(engine["backend"], engine.get("rng", _backends.DEFAULT_RNG))
     return names
 
 
@@ -234,9 +248,17 @@ class CompareReport:
         A ratio of 2 means `faster` ran the same paths in half the time of `baseline`.
         """
         by_key = {(r.vr, r.paths, r.seed, r.backend): r for r in self.rows}
+        pairs = (
+            ("cpp", "numpy"),
+            ("cpp", "python"),
+            ("numpy", "python"),
+            (FAST_CPP, "cpp"),
+            (FAST_CPP, "numpy"),
+            (FAST_CPP, "python"),
+        )
         out = []
         for vr, paths, seed in self.configs():
-            for fast, base in (("cpp", "numpy"), ("cpp", "python"), ("numpy", "python")):
+            for fast, base in pairs:
                 a, b = by_key.get((vr, paths, seed, fast)), by_key.get((vr, paths, seed, base))
                 if a and b:
                     ratio = b.seconds.median / a.seconds.median
@@ -260,7 +282,8 @@ def compare(
     """Price one European option with every back end and time each one.
 
     `configs` is one `McConfig` (paths, seed, variance reduction) or several; every back
-    end gets exactly the same ones. `backends` defaults to all that are available.
+    end gets exactly the same ones. `backends` defaults to all that are available; name
+    "cpp/fast" as well to include the cpp back end with its fast generator.
     Each run time is the median of `repeats` timed runs after `warmup` untimed ones.
 
     If `max_run_seconds` is set, a back end whose single run is estimated to take longer
@@ -287,13 +310,13 @@ def compare(
                     report.skipped.append(Skipped(name, cfg.vr, cfg.paths, reason))
                     if progress:
                         progress(
-                            f"skip   {name:<6} {cfg.paths:>12,} paths  {vr_name(cfg.vr)}: {reason}"
+                            f"skip   {name:<8} {cfg.paths:>12,} paths  {vr_name(cfg.vr)}: {reason}"
                         )
                     continue
             if progress:
-                progress(f"timing {name:<6} {cfg.paths:>12,} paths  {vr_name(cfg.vr)}")
+                progress(f"timing {name:<8} {cfg.paths:>12,} paths  {vr_name(cfg.vr)}")
             result, timing, cpu = _timed(
-                lambda cfg=cfg, name=name: european(spec, cfg, backend=name), repeats, warmup
+                lambda cfg=cfg, name=name: european(spec, cfg, **_engine(name)), repeats, warmup
             )
             report.rows.append(
                 CompareRow(
@@ -383,11 +406,11 @@ def accuracy_per_second(
     for vr in methods:
         for name in names:
             if progress:
-                progress(f"calibrating {name:<6} {vr_name(vr)}")
+                progress(f"calibrating {name:<8} {vr_name(vr)}")
             _, n_cal = _rate(spec, McConfig(seed=seed, vr=vr), name, calibration_seconds)
             cal_cfg = McConfig(paths=n_cal, seed=seed, vr=vr)
             _, timing, _ = _timed(
-                lambda cal_cfg=cal_cfg, name=name: european(spec, cal_cfg, backend=name),
+                lambda cal_cfg=cal_cfg, name=name: european(spec, cal_cfg, **_engine(name)),
                 repeats,
                 warmup,
             )
@@ -399,7 +422,7 @@ def accuracy_per_second(
                     progress(f"  {budget:g} s budget: {paths:,} paths")
                 cfg = McConfig(paths=paths, seed=seed, vr=vr)
                 start = time.perf_counter()
-                result = european(spec, cfg, backend=name)
+                result = european(spec, cfg, **_engine(name))
                 elapsed = time.perf_counter() - start
                 report.rows.append(
                     BudgetRow(
@@ -730,7 +753,12 @@ def _calibration_table(report: BudgetReport) -> str:
 # --------------------------------------------------------------------------------------
 
 # One fixed colour per back end, so a back end keeps its colour when another is missing.
-_SERIES_COLOURS = {"python": "#2a78d6", "numpy": "#eb6834", "cpp": "#1baf7a"}
+_SERIES_COLOURS = {
+    "python": "#2a78d6",
+    "numpy": "#eb6834",
+    "cpp": "#1baf7a",
+    FAST_CPP: "#eda100",
+}
 _SURFACE = "#fcfcfb"
 _INK = "#0b0b0b"
 _INK_SECONDARY = "#52514e"
@@ -951,13 +979,21 @@ def _method_notes(fixed: CompareReport | None, budget: BudgetReport | None) -> l
         else "BLAS threads were not pinned for this run (that needs `pin_to_one_thread()` "
         "before NumPy is imported; the command line does it)."
     )
+    labels = {row.backend for report in (fixed, budget) if report for row in report.rows}
+    fast_note = (
+        f' {FAST_CPP} is the cpp back end with `rng="fast"` (xoshiro256++ with a ziggurat '
+        "sampler): a third stream, repeatable for a seed, whose price also differs within "
+        "the standard error."
+        if FAST_CPP in labels
+        else ""
+    )
     notes = [
         "- Every back end is called through the same public function, "
         "`derivkit.monte_carlo.european(spec, cfg, backend=...)`, with the same option, seed, "
         "path count and variance-reduction setting.",
         "- python and cpp use the same generator (mt19937_64 + Box-Muller), so with one seed "
         "they produce the same price. numpy uses its own generator (PCG64), so its price "
-        "differs within the standard error.",
+        "differs within the standard error." + fast_note,
         f"- Single thread. {pinned} The CPU / wall column is process CPU time divided by "
         "wall time: 1.00 means one busy thread.",
         "- Timer: `time.perf_counter()` around the call. Garbage collection is left on.",

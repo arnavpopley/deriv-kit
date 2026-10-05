@@ -22,7 +22,9 @@ inline double payoff(double price, double strike, bool is_call) {
 
 }  // namespace
 
-EuropeanSampler::EuropeanSampler(const VanillaSpec& spec, std::uint64_t seed, bool antithetic)
+template <NormalGenerator Rng>
+BasicEuropeanSampler<Rng>::BasicEuropeanSampler(const VanillaSpec& spec, std::uint64_t seed,
+                                                bool antithetic)
     // Member initialiser list: members are constructed directly with these values, in the
     // order they are declared in the class.
     : spot_(spec.spot),
@@ -34,7 +36,8 @@ EuropeanSampler::EuropeanSampler(const VanillaSpec& spec, std::uint64_t seed, bo
       antithetic_(antithetic),
       rng_(seed) {}
 
-void EuropeanSampler::advance(std::uint64_t paths) {
+template <NormalGenerator Rng>
+void BasicEuropeanSampler<Rng>::advance(std::uint64_t paths) {
     // Copy the state into local variables for the duration of the loop. The compiler
     // cannot see inside exp/log/sin/cos, so it must assume those calls might change
     // anything reachable through `this`, and would reload and store the members around
@@ -46,7 +49,7 @@ void EuropeanSampler::advance(std::uint64_t paths) {
     const double df = df_;
     const bool is_call = is_call_;
     const bool antithetic = antithetic_;
-    NormalRng rng = rng_;
+    Rng rng = rng_;
     WelfordPair acc = acc_;
 
     // std::array is a fixed-size array that lives on the stack: creating it moves the
@@ -83,8 +86,9 @@ void EuropeanSampler::advance(std::uint64_t paths) {
     acc_ = acc;
 }
 
-AsianSampler::AsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::uint64_t seed,
-                           bool antithetic)
+template <NormalGenerator Rng>
+BasicAsianSampler<Rng>::BasicAsianSampler(const VanillaSpec& spec, std::uint32_t steps,
+                                          std::uint64_t seed, bool antithetic)
     : spot_(spec.spot),
       strike_(spec.strike),
       drift_(0.0),
@@ -104,7 +108,8 @@ AsianSampler::AsianSampler(const VanillaSpec& spec, std::uint32_t steps, std::ui
     vol_dt_ = spec.vol * std::sqrt(dt);
 }
 
-void AsianSampler::advance(std::uint64_t paths) {
+template <NormalGenerator Rng>
+void BasicAsianSampler<Rng>::advance(std::uint64_t paths) {
     // Locals for the same reason as in EuropeanSampler::advance: the compiler can keep
     // them in registers across the exp and log calls.
     const double spot = spot_;
@@ -115,7 +120,7 @@ void AsianSampler::advance(std::uint64_t paths) {
     const double nfix = nfix_;
     const bool is_call = is_call_;
     const bool antithetic = antithetic_;
-    NormalRng rng = rng_;
+    Rng rng = rng_;
     WelfordPair acc = acc_;
 
     // A span is a pointer and a length: a view of the member buffer, not a copy of it.
@@ -157,5 +162,12 @@ void AsianSampler::advance(std::uint64_t paths) {
     rng_ = rng;
     acc_ = acc;
 }
+
+// Explicit instantiation: compile the two classes above for each generator, here and only
+// here. The path loops are the same source for both; only the draws differ.
+template class BasicEuropeanSampler<NormalRng>;
+template class BasicEuropeanSampler<FastNormalRng>;
+template class BasicAsianSampler<NormalRng>;
+template class BasicAsianSampler<FastNormalRng>;
 
 }  // namespace derivkit::mc

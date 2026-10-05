@@ -22,6 +22,10 @@ STDERR_REL = 5% (standard errors across back ends)
     streams the standard errors in these cases differ by at most 1.3%, so 5% is loose for
     a correct engine and far below the 41% or 100% shift that a mis-weighted antithetic
     pair or control produces.
+
+The cpp back end is compared here with its "reproducible" generator. Its "fast" generator
+is a different stream by design: it is left out of the same-stream comparisons by name
+(SAME_STREAM_RNGS in conftest.py) and has its own tests in test_fast_rng.py.
 """
 
 import itertools
@@ -32,7 +36,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import require_backend, usable_backends
+from conftest import SAME_STREAM_RNGS, require_backend, usable_backends
 
 from derivkit import backends as registry
 from derivkit.black_scholes import price
@@ -84,12 +88,13 @@ def assert_pair_agrees(name_a, a, name_b, b):
     assert (a.work, a.method) == (b.work, b.method)
 
 
+@pytest.mark.parametrize("rng", SAME_STREAM_RNGS)
 @pytest.mark.parametrize(("spec_name", "vr_name"), CASES)
-def test_european_agrees_with_black_scholes_and_across_backends(spec_name, vr_name):
+def test_european_agrees_with_black_scholes_and_across_backends(spec_name, vr_name, rng):
     spec = SPECS[spec_name]
     reference = price(spec)
     cfg = McConfig(paths=PATHS, seed=SEED, vr=VR[vr_name])
-    results = {b: european(spec, cfg, backend=b) for b in usable_backends()}
+    results = {b: european(spec, cfg, backend=b, rng=rng) for b in usable_backends()}
 
     for name, r in results.items():
         assert abs(r.value - reference) <= SIGMAS * r.error_estimate, name
@@ -97,10 +102,13 @@ def test_european_agrees_with_black_scholes_and_across_backends(spec_name, vr_na
         assert_pair_agrees(name_a, a, name_b, b)
 
 
+@pytest.mark.parametrize("rng", SAME_STREAM_RNGS)
 @pytest.mark.parametrize("vr_name", list(VR))
-def test_asian_agrees_across_backends(vr_name):
+def test_asian_agrees_across_backends(vr_name, rng):
     cfg = AsianConfig(mc=McConfig(paths=6000, seed=SEED, vr=VR[vr_name]), steps=20)
-    results = {b: arithmetic_asian(SPECS["call"], cfg, backend=b) for b in usable_backends()}
+    results = {
+        b: arithmetic_asian(SPECS["call"], cfg, backend=b, rng=rng) for b in usable_backends()
+    }
     for (name_a, a), (name_b, b) in itertools.combinations(results.items(), 2):
         if {name_a, name_b} == SAME_STREAM:
             assert_pair_agrees(name_a, a, name_b, b)
@@ -175,7 +183,8 @@ def test_overflow_raises_instead_of_returning_nan(name):
         arithmetic_asian(spec, AsianConfig(mc=McConfig(paths=200), steps=4), backend=name)
 
 
-def test_cpp_runs_in_slices_without_changing_the_result(cpp_backend, monkeypatch):
+@pytest.mark.parametrize("rng", SAME_STREAM_RNGS)
+def test_cpp_runs_in_slices_without_changing_the_result(cpp_backend, monkeypatch, rng):
     """Long C++ runs are cut into slices so Ctrl-C can get through. The cut must not show."""
     from derivkit import _mc_cpp
 
@@ -183,8 +192,8 @@ def test_cpp_runs_in_slices_without_changing_the_result(cpp_backend, monkeypatch
     euro = McConfig(paths=5001, seed=SEED, vr=VR["antithetic"])
     asian = AsianConfig(mc=McConfig(paths=301, seed=SEED, vr=VR["both"]), steps=12)
     monkeypatch.setattr(_mc_cpp, "_SLICE", 37)
-    assert european(spec, euro, backend="cpp") == european(spec, euro)
-    assert arithmetic_asian(spec, asian, backend="cpp") == arithmetic_asian(spec, asian)
+    assert european(spec, euro, backend="cpp", rng=rng) == european(spec, euro)
+    assert arithmetic_asian(spec, asian, backend="cpp", rng=rng) == arithmetic_asian(spec, asian)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="sends SIGINT to itself")
