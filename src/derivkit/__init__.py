@@ -1,6 +1,6 @@
 """derivkit: European and American pricing with explicit numerical error control."""
 
-from derivkit.backends import BACKENDS, BackendUnavailableError, available_backends
+from derivkit.backends import BACKENDS, RNGS, BackendUnavailableError, available_backends
 from derivkit.black_scholes import (
     BlackSpec,
     Greeks,
@@ -42,7 +42,7 @@ from derivkit.types import (
     validate,
 )
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 
 def __getattr__(name: str):
@@ -73,6 +73,7 @@ __all__ = [
     "NormalRng",
     "OptionType",
     "PricingResult",
+    "RNGS",
     "TreeConfig",
     "TreeModel",
     "VanillaSpec",

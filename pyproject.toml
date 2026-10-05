@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "derivkit"
-version = "2.0.0"
-description = "Python derivatives pricing toolkit with analytic, tree, and Monte Carlo engines"
+version = "2.1.0"
+description = "Python derivatives pricing toolkit with analytic, tree, and Monte Carlo engines, and pure-Python, NumPy and C++20 Monte Carlo back ends"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"

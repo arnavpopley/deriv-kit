@@ -6,6 +6,11 @@ Importing this module fails with ImportError when the extension has not been bui
 The extension takes plain numbers and returns plain tuples. This adapter unpacks the
 `VanillaSpec` on the way in and wraps the moments in a `WelfordPair` on the way out, so
 the C++ kernel looks exactly like the other two to `monte_carlo`.
+
+This is the one kernel with a choice of generator (`rng`):
+
+    "reproducible"  mt19937_64 + Box-Muller: the same stream as the python back end
+    "fast"          xoshiro256++ + ziggurat: its own stream, fixed by the seed
 """
 
 from __future__ import annotations
@@ -25,6 +30,17 @@ from derivkit.types import OptionType, VanillaSpec
 _SLICE = 1 << 22
 
 build_info = _ext.build_info
+
+if not hasattr(_ext, "FastEuropeanSampler"):
+    # An extension built before the fast generator existed. Failing the import makes
+    # `backends` report the back end as present but broken, with this message.
+    raise ImportError(
+        "the compiled extension is out of date; rebuild it (cmake --build build)"
+    )
+
+# One sampler class per generator name in `derivkit.backends.RNGS`.
+_EUROPEAN ={"reproducible": _ext.EuropeanSampler, "fast": _ext.FastEuropeanSampler}
+_ASIAN = {"reproducible": _ext.AsianSampler, "fast": _ext.FastAsianSampler}
 
 
 def _advance(sampler, paths: int, draws_per_path: int = 1) -> None:
@@ -51,8 +67,10 @@ def _scalars(spec: VanillaSpec) -> tuple[float, float, float, float, float, floa
 class EuropeanSampler:
     """Exact GBM terminal sampling. `advance` may be called repeatedly; the stream continues."""
 
-    def __init__(self, spec: VanillaSpec, seed: int, antithetic: bool) -> None:
-        self._impl = _ext.EuropeanSampler(*_scalars(spec), seed & _MASK64, antithetic)
+    def __init__(
+        self, spec: VanillaSpec, seed: int, antithetic: bool, rng: str = "reproducible"
+    ) -> None:
+        self._impl = _EUROPEAN[rng](*_scalars(spec), seed & _MASK64, antithetic)
 
     def advance(self, paths: int) -> None:
         _advance(self._impl, paths)
@@ -62,9 +80,19 @@ class EuropeanSampler:
 
 
 def asian_moments(
-    spec: VanillaSpec, steps: int, paths: int, seed: int, antithetic: bool
+    spec: VanillaSpec,
+    steps: int,
+    paths: int,
+    seed: int,
+    antithetic: bool,
+    rng: str = "reproducible",
 ) -> WelfordPair:
     """Arithmetic-average payoff (y) paired with the geometric-average payoff (x)."""
-    sampler = _ext.AsianSampler(*_scalars(spec), steps, seed & _MASK64, antithetic)
+    sampler = _ASIAN[rng](*_scalars(spec), steps, seed & _MASK64, antithetic)
     _advance(sampler, paths, draws_per_path=steps)
     return WelfordPair(*sampler.moments())
+
+
+def normal_draws(rng: str, seed: int, count: int) -> list[float]:
+    """The first `count` N(0, 1) draws of generator `rng` for `seed`. Used by the tests."""
+    return _ext.normal_draws(rng, seed & _MASK64, count)

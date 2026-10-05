@@ -12,6 +12,16 @@ A kernel is a module `derivkit._mc_<name>` with two entry points:
 Both report a `WelfordPair`. Validation, the control-variate finish and result naming are
 shared code in `monte_carlo`, so the back ends cannot drift apart on anything but the
 path loop itself.
+
+The cpp kernel also has a choice of random number generator, `rng`:
+
+    "reproducible"  the default: mt19937_64 + Box-Muller, the same stream as "python",
+                    so the two return the same price for the same seed
+    "fast"          xoshiro256++ + ziggurat: 1.7 to 1.9 times the paths per second
+                    (benchmarks/RESULTS.md), and a stream of its own. Repeatable for a
+                    seed, but it matches neither "python" nor "numpy" digit for digit
+
+"python" and "numpy" have one generator each, so they accept only the default.
 """
 
 from __future__ import annotations
@@ -21,6 +31,8 @@ import warnings
 from types import ModuleType
 
 BACKENDS: tuple[str, ...] = ("python", "numpy", "cpp")
+RNGS: tuple[str, ...] = ("reproducible", "fast")
+DEFAULT_RNG = "reproducible"
 
 _HOW_TO_GET = {
     "numpy": "it needs NumPy (pip install numpy)",
@@ -70,6 +82,25 @@ def kernel(backend: str) -> ModuleType:
         raise BackendUnavailableError(
             f"backend {backend!r} is not available: {reason}", missing=missing
         ) from exc
+
+
+def rng_arguments(backend: str, rng: str) -> dict[str, str]:
+    """Keyword arguments that select generator `rng` in the kernel for `backend`.
+
+    The default needs none: it is each kernel's standard generator. Only the cpp kernel
+    has another one, so asking any other back end for it is an error, not a silent
+    fallback to a generator the caller did not choose.
+    """
+    if rng not in RNGS:
+        choices = ", ".join(repr(r) for r in RNGS)
+        raise ValueError(f"unknown rng {rng!r}; choose one of {choices}")
+    if rng == DEFAULT_RNG:
+        return {}
+    if backend != "cpp":
+        raise ValueError(
+            f"rng={rng!r} needs backend='cpp'; backend {backend!r} has one generator"
+        )
+    return {"rng": rng}
 
 
 def available_backends() -> tuple[str, ...]:

@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+- C++ back end: a second random number generator, chosen with `rng="fast"`
+  (`european(spec, cfg, backend="cpp", rng="fast")`; `european_adaptive` and
+  `arithmetic_asian` take it too). It is xoshiro256++ seeded through SplitMix64,
+  with a 256-layer ziggurat sampler for the normal draw
+- The default is still `rng="reproducible"` (mt19937_64 + Box-Muller). It is
+  unchanged and still reproduces the pure-Python results for the same seed
+- `rng="fast"` is repeatable for a seed, but it is a different stream: its
+  prices agree with `python`, `numpy` and the reproducible generator within
+  the standard error, not digit for digit. Asking for it on a back end other
+  than `cpp` raises `ValueError`
+- `derivkit.compare(..., backends=[..., "cpp/fast"])` and
+  `python -m derivkit compare --backends ... cpp/fast` measure it beside the
+  three back ends; the default comparison is unchanged
+- `benchmarks/rng_speed.cpp` times the two generators on their own, and
+  `benchmarks/where_time_goes.cpp` profiles the kernel with each
+- Measured in one session (battery, Low Power Mode off; see
+  `benchmarks/RESULTS.md`): normal draws on their own are 6.6 times faster with
+  the fast generator, and the kernel runs 1.66 to 1.94 times faster, at 0.88 to
+  0.91 times the speed of `numpy`. The largest remaining cost is `exp`, which
+  this change leaves alone
+- An extension built before this change is reported as out of date, with the
+  command to rebuild it, instead of failing with an `AttributeError`
+- CI builds the extension with GCC and Clang on Python 3.11, 3.12 and 3.13 with
+  warnings as errors, and runs the suite again under AddressSanitizer and
+  UndefinedBehaviorSanitizer on the same combinations
+
+## 2.1.0 - 2026-10-05
+
 - Monte Carlo back ends: `european`, `european_adaptive` and
   `arithmetic_asian` take `backend="python"` (default), `"numpy"` or `"cpp"`
 - NumPy-vectorised back end (optional dependency)
@@ -16,6 +44,7 @@ All notable changes to this project are documented here.
   instead of once per path; results are unchanged
 - CI builds the extension with GCC and Clang and tests all three back ends, and builds
   and installs a wheel
+- CI also runs the core suite on Python 3.13
 - Fixed: `pip install .` and wheel builds failed because the NIFTY fixture was added to
   the wheel twice
 
@@ -24,8 +53,6 @@ All notable changes to this project are documented here.
 Python 3.11 package. Numerical engines, tests, and the Groww example keep
 the same formulas, residuals, and NSE clock as 1.x. Monte Carlo uses
 mt19937_64 + Box-Muller.
-
-## Unreleased (folded into 2.0.0)
 
 - Black-76 on a forward, with an identity to Black-Scholes-Merton when
   `F = S e^{(r-q)T}` and `DF = e^{-rT}`
