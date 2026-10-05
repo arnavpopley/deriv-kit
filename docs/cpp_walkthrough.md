@@ -530,69 +530,67 @@ error for the same number of paths, so it still wins clearly: in one second of C
 ### What the fast generator changes
 
 Section 5 describes the second generator. This is what it changes, measured. Everything in
-this subsection comes from one session, recorded with the laptop on battery, Low Power
-Mode on. The tables above were recorded on battery, Low Power Mode off, so absolute
-numbers here are lower than there; read it by its ratios, which compare rows taken minutes
-apart.
+this subsection comes from one session under the same conditions as the tables above
+(battery, Low Power Mode off).
 
 **The generators on their own** (`./build/rng_speed`: nothing in the loop but the draw):
 
 | Generator | ns per normal | Normals per second |
 | --- | ---: | ---: |
-| reproducible: mt19937_64 + Box-Muller | 14.10 | 70.9 M |
-| fast: xoshiro256++ + ziggurat | 2.11 | 473.2 M |
+| reproducible: mt19937_64 + Box-Muller | 7.02 | 142.4 M |
+| fast: xoshiro256++ + ziggurat | 1.06 | 942.7 M |
 
-The fast generator draws normals 6.7 times faster.
+The fast generator draws normals 6.6 times faster.
 
 **The kernel, step by step** (`./build/where_time_goes`). The steps after the draw are the
 same source code in both columns, because the path loop is one template:
 
 | C++ kernel, cost per path (ns) | reproducible | fast |
 | --- | ---: | ---: |
-| 64-bit draw, converted to a uniform | 2.93 | 1.34 |
-| transform to a normal (Box-Muller / ziggurat) | 11.54 | 1.53 |
-| exp for the terminal price | 7.50 | 7.53 |
-| payoff and Welford update | 3.00 | 2.62 |
-| **whole kernel, one path** | **24.97** | **13.03** |
-| whole kernel, one antithetic pair | 30.07 | 18.30 |
-| not used: exp with log(S) inside the exponent | 2.14 | 2.17 |
+| 64-bit draw, converted to a uniform | 1.45 | 0.67 |
+| transform to a normal (Box-Muller / ziggurat) | 5.85 | 0.78 |
+| exp for the terminal price | 3.77 | 3.69 |
+| payoff and Welford update | 1.37 | 1.37 |
+| **whole kernel, one path** | **12.43** | **6.51** |
+| whole kernel, one antithetic pair | 15.12 | 9.11 |
+| not used: exp with log(S) inside the exponent | 1.11 | 1.00 |
 
-The generator went from 14.5 ns to 2.9 ns per path, and the whole path from 25.0 ns to
-13.0 ns. The other steps moved by less than half a nanosecond. That is the point of
-changing one thing at a time: the saving can be attributed to the generator.
+The generator went from 7.3 ns to 1.5 ns per path, and the whole path from 12.4 ns to 6.5
+ns. The other steps moved by less than half a nanosecond. That is the point of changing
+one thing at a time: the saving can be attributed to the generator.
 
 **Through the public API** (`python -m derivkit compare`, 10^7 paths):
 
 | 10^7 paths | cpp | cpp/fast | numpy |
 | --- | ---: | ---: | ---: |
-| No variance reduction: paths per second | 39.82 M | 76.53 M | 84.59 M |
-| Antithetic + control variate: paths per second | 32.89 M | 53.94 M | 62.58 M |
-| Standard error after 1 s, no variance reduction | 2.32 x 10^-3 | 1.67 x 10^-3 | 1.60 x 10^-3 |
-| Standard error after 1 s, antithetic + control variate | 3.40 x 10^-4 | 2.62 x 10^-4 | 2.46 x 10^-4 |
+| No variance reduction: paths per second | 77.09 M | 149.49 M | 165.13 M |
+| Antithetic + control variate: paths per second | 64.95 M | 107.58 M | 122.06 M |
+| Standard error after 1 s, no variance reduction | 1.66 x 10^-3 | 1.20 x 10^-3 | 1.14 x 10^-3 |
+| Standard error after 1 s, antithetic + control variate | 2.42 x 10^-4 | 1.88 x 10^-4 | 1.76 x 10^-4 |
 
-Across the four variance-reduction settings `cpp/fast` runs 1.64 to 1.92 times faster than
-`cpp`, and at 0.86 to 0.90 times the speed of `numpy`.
+Across the four variance-reduction settings `cpp/fast` runs 1.66 to 1.94 times faster than
+`cpp`, and at 0.88 to 0.91 times the speed of `numpy`.
 
 **What this settles, and what it does not.**
 
 - The claim in "Why C++ is not faster than NumPy" was that the normal draw is the larger
   of two costs. That is now tested rather than argued: taking it away, and nothing else,
-  made the kernel 1.92 times faster.
-- The fast draw is cheaper than NumPy's: 2.11 ns against 6.32 ns for `standard_normal` in
+  made the kernel 1.94 times faster.
+- The fast draw is cheaper than NumPy's: 1.06 ns against 3.21 ns for `standard_normal` in
   the same session. So the generator is no longer what separates the two.
-- The C++ kernel is still behind NumPy overall, at 0.86 to 0.90 times its speed. The
-  profile says why. With the generator down to 2.9 ns, `exp` is the largest step at 7.5
-  ns, 58% of the path. NumPy's `exp` step costs 2.73 ns, because its argument does not
+- The C++ kernel is still behind NumPy overall, at 0.88 to 0.91 times its speed. The
+  profile says why. With the generator down to 1.5 ns, `exp` is the largest step at 3.7
+  ns, 57% of the path. NumPy's `exp` step costs 1.40 ns, because its argument does not
   change sign from path to path (the second difference in the list above).
-- The same `exp` with `log(S)` inside the exponent costs 2.17 ns here. If nothing else
-  changed, a fast path would cost about 7.7 ns instead of 13.0 ns, which would put it
-  ahead of NumPy's 11.8 ns. That kernel was not built or timed. It is left for a separate
-  change on purpose: two changes measured together cannot be told apart afterwards.
+- The same `exp` with `log(S)` inside the exponent costs 1.00 ns here. If nothing else
+  changed, a fast path would cost about 3.8 ns instead of 6.5 ns, which would put it ahead
+  of NumPy's 6.0 ns. That kernel was not built or timed. It is left for a separate change
+  on purpose: two changes measured together cannot be told apart afterwards.
 
 An honest note on expectations. Before measuring, the guess was that a modern generator
 with a ziggurat would take the kernel well past NumPy. The draw did get that fast. The
-kernel did not, because the draw was only 58% of the path to begin with, and removing most
-of that leaves the other 42% untouched. A step that is 58% of the time can never buy more
+kernel did not, because the draw was only 59% of the path to begin with, and removing most
+of that leaves the other 41% untouched. A step that is 59% of the time can never buy more
 than a factor of 2.4, however fast it becomes (Amdahl's law).
 
 ## 8. What I would change to go faster
@@ -607,7 +605,7 @@ this machine; the rest are standard techniques that were not built or timed here
    two would differ in the last few digits), which is why it was not made.
 2. **Replace Box-Muller with a ziggurat sampler on a cheaper generator.** Done, as
    `rng="fast"` (xoshiro256++ with a 256-layer ziggurat). Measured: a normal draw went
-   from 14.10 ns to 2.11 ns and the kernel became 1.92 times faster (section 7, same
+   from 7.02 ns to 1.06 ns and the kernel became 1.94 times faster (section 7, same
    session for both). It gives up the shared stream with Python, which is why it is a
    second generator beside the first rather than a replacement.
 3. **Compute the antithetic leg without a second `exp`.** The mirrored price is
@@ -631,7 +629,7 @@ this machine; the rest are standard techniques that were not built or timed here
 With items 1 and 2 the C++ kernel would do the same work as the NumPy kernel, and the
 comparison would then show what the language itself buys. Item 2 has now been run on its
 own. Item 1 is the next experiment: on top of the fast generator the step-level numbers
-suggest about 7.7 ns per path against NumPy's 11.8 ns, but that is an estimate from one
+suggest about 3.8 ns per path against NumPy's 6.0 ns, but that is an estimate from one
 step, not a measurement of a kernel.
 
 Two things that were tried during development and are already in the code:
@@ -650,11 +648,11 @@ gap is two algorithm choices: NumPy's ziggurat sampler is less than half the cos
 Box-Muller, and its `exp` runs on a friendlier argument. My default kernel keeps the
 slower choices because it must match the pure-Python engine bit for bit. I then tested
 that explanation instead of leaving it as an argument: I added a second generator
-(xoshiro256++ with a ziggurat) and changed nothing else. The draw became 6.7 times faster
-and the kernel 1.92 times faster, which left it at 0.86 to 0.90 times NumPy's speed, with
+(xoshiro256++ with a ziggurat) and changed nothing else. The draw became 6.6 times faster
+and the kernel 1.94 times faster, which left it at 0.88 to 0.91 times NumPy's speed, with
 `exp` now the largest step. The lessons: profile before assuming the language is the
 bottleneck, change one thing at a time so the gain can be attributed, and remember that
-speeding up a step that is 58% of the time cannot gain more than a factor of 2.4.
+speeding up a step that is 59% of the time cannot gain more than a factor of 2.4.
 
 **2. Why did you write Box-Muller by hand instead of using `std::normal_distribution`?**
 The standard fixes the output of `std::mt19937_64` but not the algorithm inside

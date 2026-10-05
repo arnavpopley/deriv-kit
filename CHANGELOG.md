@@ -19,10 +19,10 @@ All notable changes to this project are documented here.
   three back ends; the default comparison is unchanged
 - `benchmarks/rng_speed.cpp` times the two generators on their own, and
   `benchmarks/where_time_goes.cpp` profiles the kernel with each
-- Measured in one session (battery, Low Power Mode on; see
-  `benchmarks/RESULTS.md`): normal draws on their own are 6.7 times faster with
-  the fast generator, and the kernel runs 1.64 to 1.92 times faster, at 0.86 to
-  0.90 times the speed of `numpy`. The largest remaining cost is `exp`, which
+- Measured in one session (battery, Low Power Mode off; see
+  `benchmarks/RESULTS.md`): normal draws on their own are 6.6 times faster with
+  the fast generator, and the kernel runs 1.66 to 1.94 times faster, at 0.88 to
+  0.91 times the speed of `numpy`. The largest remaining cost is `exp`, which
   this change leaves alone
 - An extension built before this change is reported as out of date, with the
   command to rebuild it, instead of failing with an `AttributeError`

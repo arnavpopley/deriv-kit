@@ -13,9 +13,8 @@ NumPy and C++.
 
 `derivkit` prices the same option with three interchangeable Monte Carlo back ends and
 measures them against each other. Everything below was measured on one machine (Apple M5,
-one thread). The first two tables were recorded on battery with Low Power Mode off; the
-section on the fast generator states its own conditions. The full tables, the exact
-commands and the environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
+one thread, on battery with Low Power Mode off). The full tables, the exact commands and
+the environment are in [benchmarks/RESULTS.md](benchmarks/RESULTS.md).
 
 ![Standard error reached in a fixed time budget, per back end and variance-reduction method](benchmarks/accuracy_vs_time.png)
 
@@ -123,19 +122,17 @@ The `cpp` back end has two random number generators, and it keeps both on purpos
 the standard error, not digit for digit. Use the default when a result has to be checked
 against the Python engine, and `fast` when paths per second matter more.
 
-**Before and after.** These rows come from one session, recorded with the laptop on
-battery, Low Power Mode on. The tables above were recorded on battery, Low Power Mode off,
-so absolute numbers here are lower than there; read this table by its ratios, which
-compare rows taken minutes apart. Full tables are in the last section of
+**Before and after.** These rows come from one session under the same conditions as the
+tables above (battery, Low Power Mode off). Full tables are in the last section of
 [benchmarks/RESULTS.md](benchmarks/RESULTS.md#the-fast-generator-for-the-c-back-end).
 
 | | cpp, reproducible | cpp, fast | numpy |
 | --- | ---: | ---: | ---: |
-| Normal draws on their own, per second | 70.9 M | 473.2 M | 158.2 M |
-| 10^7 paths, no variance reduction: paths per second | 39.82 M | 76.53 M | 84.59 M |
-| 10^7 paths, antithetic + control variate: paths per second | 32.89 M | 53.94 M | 62.58 M |
-| Standard error after 1 s, no variance reduction | 2.32 x 10^-3 | 1.67 x 10^-3 | 1.60 x 10^-3 |
-| Standard error after 1 s, antithetic + control variate | 3.40 x 10^-4 | 2.62 x 10^-4 | 2.46 x 10^-4 |
+| Normal draws on their own, per second | 142.4 M | 942.7 M | 311.5 M |
+| 10^7 paths, no variance reduction: paths per second | 77.09 M | 149.49 M | 165.13 M |
+| 10^7 paths, antithetic + control variate: paths per second | 64.95 M | 107.58 M | 122.06 M |
+| Standard error after 1 s, no variance reduction | 1.66 x 10^-3 | 1.20 x 10^-3 | 1.14 x 10^-3 |
+| Standard error after 1 s, antithetic + control variate | 2.42 x 10^-4 | 1.88 x 10^-4 | 1.76 x 10^-4 |
 
 The first row times the draw alone: `benchmarks/rng_speed.cpp` for the two C++ generators,
 and `standard_normal` filling 65,536 numbers at a time for NumPy
@@ -144,16 +141,16 @@ and `standard_normal` filling 65,536 numbers at a time for NumPy
 What the numbers say:
 
 - **The generator was the largest single cost in the C++ kernel.** On their own, normal
-  draws are 6.7 times faster with the fast generator. In the kernel that removes 11.6 ns
-  of a 25.0 ns path, and the same paths run 1.64 to 1.92 times faster across the four
+  draws are 6.6 times faster with the fast generator. In the kernel that removes 5.8 ns of
+  a 12.4 ns path, and the same paths run 1.66 to 1.94 times faster across the four
   variance-reduction settings.
-- **It is still behind NumPy, at 0.86 to 0.90 times its speed.** The generator is no
-  longer the reason: a fast normal draw costs 2.11 ns against 6.32 ns for NumPy's. What is
-  left is `exp`, now 7.5 ns of a 13.0 ns path, which NumPy calls with an argument that
-  this machine's `exp` handles about 3.5 times faster. That is a separate change and is
+- **It is still behind NumPy, at 0.88 to 0.91 times its speed.** The generator is no
+  longer the reason: a fast normal draw costs 1.06 ns against 3.21 ns for NumPy's. What is
+  left is `exp`, now 3.7 ns of a 6.5 ns path, which NumPy calls with an argument that this
+  machine's `exp` handles about 3.7 times faster. That is a separate change and is
   deliberately not made here, so that the effect of the generator can be read on its own.
 - **In accuracy per second** the fast generator lowers the standard error reached in one
-  second by a factor of 1.39 with no variance reduction and 1.30 with both methods on, as
+  second by a factor of 1.38 with no variance reduction and 1.29 with both methods on, as
   expected from the square root of the speed ratio.
 
 [docs/cpp_walkthrough.md](docs/cpp_walkthrough.md) explains both generators and shows the

@@ -208,10 +208,10 @@ match python, numpy or cpp digit for digit, only within the standard error.
 cmake --build build --target _mc_cpp_ext rng_speed where_time_goes
 ./build/rng_speed
 ./build/where_time_goes
-python -m derivkit compare --backends python numpy cpp cpp/fast --paths 1e7 --vr all --budgets 1 --report /private/tmp/claude-501/-Users-arnavpopley-deriv-kit/60d13648-a9f7-4e9d-a3e7-46dbde6eda7c/scratchpad/rec/run1/report.md
+python -m derivkit compare --backends python numpy cpp cpp/fast --paths 1e7 --vr all --budgets 1 --report out/fast_generator.md
 ```
 
-Run finished 2026-10-05 20:18 BST. The environment below was recorded when the run started.
+Run finished 2026-10-05 22:16 BST. The environment below was recorded when the run started.
 
 | Item | Value |
 | --- | --- |
@@ -221,10 +221,8 @@ Run finished 2026-10-05 20:18 BST. The environment below was recorded when the r
 | NumPy | 2.5.3 (generator PCG64, BLAS accelerate) |
 | C++ compiler | Apple clang 21.0.0 (clang-2100.1.1.101) |
 | C++ build | Release, flags `-O3 -DNDEBUG -std=c++20 -ffp-contract=off`, pybind11 3.1.0 |
-| Power | battery, Low Power Mode on |
-| derivkit | 2.1.0 (commit 003a48b plus uncommitted changes) |
-
-The uncommitted changes in the derivkit row were edits to two documentation files (`CONTRIBUTING.md` and `docs/methods.md`). The C++ and Python sources were at that commit.
+| Power | battery, Low Power Mode off |
+| derivkit | 2.1.0 (commit bd871de) |
 
 ### Method
 
@@ -246,12 +244,12 @@ them.
 
 | Generator                              | Draw    |    ns | Draws / s |
 | ---                                    | ---     |  ---: |      ---: |
-| reproducible: mt19937_64 + Box-Muller  | uniform |  4.50 |   222.2 M |
-| reproducible: mt19937_64 + Box-Muller  | normal  | 14.10 |    70.9 M |
-| fast: xoshiro256++ + ziggurat          | uniform |  1.37 |   728.9 M |
-| fast: xoshiro256++ + ziggurat          | normal  |  2.11 |   473.2 M |
+| reproducible: mt19937_64 + Box-Muller  | uniform |  1.45 |   691.4 M |
+| reproducible: mt19937_64 + Box-Muller  | normal  |  7.02 |   142.4 M |
+| fast: xoshiro256++ + ziggurat          | uniform |  0.68 |  1464.9 M |
+| fast: xoshiro256++ + ziggurat          | normal  |  1.06 |   942.7 M |
 
-Normal draws: fast is 6.67 times the speed of reproducible.
+Normal draws: fast is 6.62 times the speed of reproducible.
 
 ### Fixed path count: 10^7 paths
 
@@ -259,46 +257,46 @@ Normal draws: fast is 6.67 times the speed of reproducible.
 
 | Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| python | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 17.38 | 16.44 | 19.52 | 0.58 M | 0.96 |
-| numpy | 10,000,000 | 10.455593 | 4.66 x 10^-3 | 5.01 x 10^-3 | 0.1182 | 0.1167 | 0.1191 | 84.59 M | 1.00 |
-| cpp | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 0.2511 | 0.2502 | 0.3085 | 39.82 M | 0.98 |
-| cpp/fast | 10,000,000 | 10.453574 | 4.66 x 10^-3 | 2.99 x 10^-3 | 0.1307 | 0.13 | 0.1315 | 76.53 M | 1.00 |
+| python | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 8.307 | 8.225 | 8.656 | 1.20 M | 1.00 |
+| numpy | 10,000,000 | 10.455593 | 4.66 x 10^-3 | 5.01 x 10^-3 | 0.06056 | 0.06031 | 0.06636 | 165.13 M | 0.99 |
+| cpp | 10,000,000 | 10.454013 | 4.66 x 10^-3 | 3.43 x 10^-3 | 0.1297 | 0.1274 | 0.1628 | 77.09 M | 0.98 |
+| cpp/fast | 10,000,000 | 10.453574 | 4.66 x 10^-3 | 2.99 x 10^-3 | 0.06689 | 0.06661 | 0.08264 | 149.49 M | 0.99 |
 
 **Antithetic**
 
 | Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| python | 10,000,000 | 10.452261 | 2.33 x 10^-3 | 1.68 x 10^-3 | 18.74 | 18.37 | 21.58 | 0.53 M | 0.97 |
-| numpy | 10,000,000 | 10.447247 | 2.32 x 10^-3 | 3.34 x 10^-3 | 0.1593 | 0.159 | 0.1598 | 62.78 M | 1.00 |
-| cpp | 10,000,000 | 10.452261 | 2.33 x 10^-3 | 1.68 x 10^-3 | 0.301 | 0.2991 | 0.3128 | 33.22 M | 0.99 |
-| cpp/fast | 10,000,000 | 10.450036 | 2.32 x 10^-3 | 5.48 x 10^-4 | 0.1805 | 0.1803 | 0.1859 | 55.41 M | 1.00 |
+| python | 10,000,000 | 10.452261 | 2.33 x 10^-3 | 1.68 x 10^-3 | 9.23 | 9.188 | 9.453 | 1.08 M | 1.00 |
+| numpy | 10,000,000 | 10.447247 | 2.32 x 10^-3 | 3.34 x 10^-3 | 0.08207 | 0.08196 | 0.0823 | 121.85 M | 1.00 |
+| cpp | 10,000,000 | 10.452261 | 2.33 x 10^-3 | 1.68 x 10^-3 | 0.1542 | 0.1536 | 0.1542 | 64.86 M | 1.00 |
+| cpp/fast | 10,000,000 | 10.450036 | 2.32 x 10^-3 | 5.48 x 10^-4 | 0.09295 | 0.09283 | 0.09367 | 107.59 M | 1.00 |
 
 **Control variate**
 
 | Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| python | 10,000,000 | 10.451439 | 1.77 x 10^-3 | 8.55 x 10^-4 | 16.37 | 16.01 | 17.71 | 0.61 M | 0.98 |
-| numpy | 10,000,000 | 10.447184 | 1.77 x 10^-3 | 3.40 x 10^-3 | 0.116 | 0.1158 | 0.1163 | 86.23 M | 1.00 |
-| cpp | 10,000,000 | 10.451439 | 1.77 x 10^-3 | 8.55 x 10^-4 | 0.2472 | 0.247 | 0.2477 | 40.45 M | 1.00 |
-| cpp/fast | 10,000,000 | 10.449887 | 1.77 x 10^-3 | 6.96 x 10^-4 | 0.1285 | 0.1282 | 0.2111 | 77.79 M | 0.94 |
+| python | 10,000,000 | 10.451439 | 1.77 x 10^-3 | 8.55 x 10^-4 | 8.219 | 8.014 | 8.314 | 1.22 M | 1.00 |
+| numpy | 10,000,000 | 10.447184 | 1.77 x 10^-3 | 3.40 x 10^-3 | 0.06015 | 0.05993 | 0.06029 | 166.25 M | 1.00 |
+| cpp | 10,000,000 | 10.451439 | 1.77 x 10^-3 | 8.55 x 10^-4 | 0.1269 | 0.1268 | 0.1271 | 78.79 M | 1.00 |
+| cpp/fast | 10,000,000 | 10.449887 | 1.77 x 10^-3 | 6.96 x 10^-4 | 0.0666 | 0.06643 | 0.06665 | 150.15 M | 1.00 |
 
 **Antithetic + control variate**
 
 | Back end | Paths | Price | Std. error | Abs. error vs BS | Run time, median (s) | min (s) | max (s) | Paths / s | CPU / wall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| python | 10,000,000 | 10.449937 | 6.15 x 10^-4 | 6.46 x 10^-4 | 18.27 | 17.96 | 19.12 | 0.55 M | 0.99 |
-| numpy | 10,000,000 | 10.449700 | 6.15 x 10^-4 | 8.84 x 10^-4 | 0.1598 | 0.1593 | 0.1612 | 62.58 M | 1.00 |
-| cpp | 10,000,000 | 10.449937 | 6.15 x 10^-4 | 6.46 x 10^-4 | 0.304 | 0.3012 | 0.3088 | 32.89 M | 1.00 |
-| cpp/fast | 10,000,000 | 10.450979 | 6.15 x 10^-4 | 3.95 x 10^-4 | 0.1854 | 0.1827 | 0.1973 | 53.94 M | 0.98 |
+| python | 10,000,000 | 10.449937 | 6.15 x 10^-4 | 6.46 x 10^-4 | 9.317 | 9.141 | 9.443 | 1.07 M | 1.00 |
+| numpy | 10,000,000 | 10.449700 | 6.15 x 10^-4 | 8.84 x 10^-4 | 0.08193 | 0.0818 | 0.0893 | 122.06 M | 0.99 |
+| cpp | 10,000,000 | 10.449937 | 6.15 x 10^-4 | 6.46 x 10^-4 | 0.154 | 0.1537 | 0.1556 | 64.95 M | 1.00 |
+| cpp/fast | 10,000,000 | 10.450979 | 6.15 x 10^-4 | 3.95 x 10^-4 | 0.09296 | 0.09271 | 0.09341 | 107.58 M | 1.00 |
 
 **Speed ratios** (same paths; above 1 means the first back end is faster)
 
 | Variance reduction | Paths | cpp vs numpy | cpp vs python | numpy vs python | cpp/fast vs cpp | cpp/fast vs numpy | cpp/fast vs python |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| No variance reduction | 10,000,000 | 0.47x | 69.2x | 147x | 1.92x | 0.90x | 133x |
-| Antithetic | 10,000,000 | 0.53x | 62.3x | 118x | 1.67x | 0.88x | 104x |
-| Control variate | 10,000,000 | 0.47x | 66.2x | 141x | 1.92x | 0.90x | 127x |
-| Antithetic + control variate | 10,000,000 | 0.53x | 60.1x | 114x | 1.64x | 0.86x | 98.5x |
+| No variance reduction | 10,000,000 | 0.47x | 64.0x | 137x | 1.94x | 0.91x | 124x |
+| Antithetic | 10,000,000 | 0.53x | 59.9x | 112x | 1.66x | 0.88x | 99.3x |
+| Control variate | 10,000,000 | 0.47x | 64.8x | 137x | 1.91x | 0.90x | 123x |
+| Antithetic + control variate | 10,000,000 | 0.53x | 60.5x | 114x | 1.66x | 0.88x | 100x |
 
 ### Standard error reached in 1 s
 
@@ -306,52 +304,52 @@ Normal draws: fast is 6.67 times the speed of reproducible.
 
 | Variance reduction | Time budget | python | numpy | cpp | cpp/fast |
 | --- | --- | ---: | ---: | ---: | ---: |
-| No variance reduction | 1 s | 1.88 x 10^-2 | 1.60 x 10^-3 | 2.32 x 10^-3 | 1.67 x 10^-3 |
-| Antithetic | 1 s | 9.90 x 10^-3 | 9.34 x 10^-4 | 1.28 x 10^-3 | 9.97 x 10^-4 |
-| Control variate | 1 s | 7.08 x 10^-3 | 6.07 x 10^-4 | 8.84 x 10^-4 | 6.36 x 10^-4 |
-| Antithetic + control variate | 1 s | 2.69 x 10^-3 | 2.46 x 10^-4 | 3.40 x 10^-4 | 2.62 x 10^-4 |
+| No variance reduction | 1 s | 1.33 x 10^-2 | 1.14 x 10^-3 | 1.66 x 10^-3 | 1.20 x 10^-3 |
+| Antithetic | 1 s | 7.06 x 10^-3 | 6.65 x 10^-4 | 9.13 x 10^-4 | 7.11 x 10^-4 |
+| Control variate | 1 s | 5.07 x 10^-3 | 4.34 x 10^-4 | 6.32 x 10^-4 | 4.59 x 10^-4 |
+| Antithetic + control variate | 1 s | 1.87 x 10^-3 | 1.76 x 10^-4 | 2.42 x 10^-4 | 1.88 x 10^-4 |
 
 **Detail of each budget run**
 
 | Variance reduction | Time budget | Back end | Paths | Measured time (s) | Price | Std. error | Abs. error vs BS |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| No variance reduction | 1 s | python | 609,698 | 0.9923 | 10.447396 | 1.88 x 10^-2 | 3.19 x 10^-3 |
-| No variance reduction | 1 s | numpy | 84,919,014 | 0.9901 | 10.452166 | 1.60 x 10^-3 | 1.58 x 10^-3 |
-| No variance reduction | 1 s | cpp | 40,336,174 | 1.003 | 10.446733 | 2.32 x 10^-3 | 3.85 x 10^-3 |
-| No variance reduction | 1 s | cpp/fast | 77,988,739 | 0.9986 | 10.447977 | 1.67 x 10^-3 | 2.61 x 10^-3 |
-| Antithetic | 1 s | python | 553,039 | 1.04 | 10.454916 | 9.90 x 10^-3 | 4.33 x 10^-3 |
-| Antithetic | 1 s | numpy | 61,949,473 | 1.006 | 10.450408 | 9.34 x 10^-4 | 1.75 x 10^-4 |
-| Antithetic | 1 s | cpp | 33,080,029 | 0.9992 | 10.450759 | 1.28 x 10^-3 | 1.76 x 10^-4 |
-| Antithetic | 1 s | cpp/fast | 54,334,560 | 1.023 | 10.449816 | 9.97 x 10^-4 | 7.68 x 10^-4 |
-| Control variate | 1 s | python | 627,566 | 1.025 | 10.447471 | 7.08 x 10^-3 | 3.11 x 10^-3 |
-| Control variate | 1 s | numpy | 85,366,276 | 1.013 | 10.450586 | 6.07 x 10^-4 | 2.56 x 10^-6 |
-| Control variate | 1 s | cpp | 40,346,152 | 1.009 | 10.450906 | 8.84 x 10^-4 | 3.23 x 10^-4 |
-| Control variate | 1 s | cpp/fast | 77,920,912 | 1.013 | 10.450301 | 6.36 x 10^-4 | 2.83 x 10^-4 |
-| Antithetic + control variate | 1 s | python | 527,586 | 0.9789 | 10.449182 | 2.69 x 10^-3 | 1.40 x 10^-3 |
-| Antithetic + control variate | 1 s | numpy | 62,490,335 | 0.9937 | 10.450302 | 2.46 x 10^-4 | 2.82 x 10^-4 |
-| Antithetic + control variate | 1 s | cpp | 32,750,568 | 0.9866 | 10.450232 | 3.40 x 10^-4 | 3.52 x 10^-4 |
-| Antithetic + control variate | 1 s | cpp/fast | 54,919,635 | 1.006 | 10.450694 | 2.62 x 10^-4 | 1.11 x 10^-4 |
+| No variance reduction | 1 s | python | 1,226,658 | 0.9934 | 10.448199 | 1.33 x 10^-2 | 2.38 x 10^-3 |
+| No variance reduction | 1 s | numpy | 166,950,030 | 1.001 | 10.452206 | 1.14 x 10^-3 | 1.62 x 10^-3 |
+| No variance reduction | 1 s | cpp | 78,679,010 | 0.9997 | 10.450183 | 1.66 x 10^-3 | 4.00 x 10^-4 |
+| No variance reduction | 1 s | cpp/fast | 150,361,972 | 1.001 | 10.448259 | 1.20 x 10^-3 | 2.32 x 10^-3 |
+| Antithetic | 1 s | python | 1,084,916 | 1.004 | 10.457262 | 7.06 x 10^-3 | 6.68 x 10^-3 |
+| Antithetic | 1 s | numpy | 122,098,617 | 1 | 10.451389 | 6.65 x 10^-4 | 8.05 x 10^-4 |
+| Antithetic | 1 s | cpp | 64,835,079 | 1.003 | 10.451368 | 9.13 x 10^-4 | 7.84 x 10^-4 |
+| Antithetic | 1 s | cpp/fast | 107,052,174 | 0.9971 | 10.450124 | 7.11 x 10^-4 | 4.59 x 10^-4 |
+| Control variate | 1 s | python | 1,226,702 | 0.9921 | 10.453111 | 5.07 x 10^-3 | 2.53 x 10^-3 |
+| Control variate | 1 s | numpy | 166,954,949 | 0.9992 | 10.450602 | 4.34 x 10^-4 | 1.86 x 10^-5 |
+| Control variate | 1 s | cpp | 78,830,109 | 0.9994 | 10.451554 | 6.32 x 10^-4 | 9.71 x 10^-4 |
+| Control variate | 1 s | cpp/fast | 149,507,930 | 1.001 | 10.450450 | 4.59 x 10^-4 | 1.33 x 10^-4 |
+| Antithetic + control variate | 1 s | python | 1,081,585 | 0.9977 | 10.451711 | 1.87 x 10^-3 | 1.13 x 10^-3 |
+| Antithetic + control variate | 1 s | numpy | 121,866,909 | 1.476 | 10.450468 | 1.76 x 10^-4 | 1.15 x 10^-4 |
+| Antithetic + control variate | 1 s | cpp | 64,679,114 | 1 | 10.450392 | 2.42 x 10^-4 | 1.92 x 10^-4 |
+| Antithetic + control variate | 1 s | cpp/fast | 107,050,182 | 0.9981 | 10.450635 | 1.88 x 10^-4 | 5.16 x 10^-5 |
 
 **Calibration behind the budgets**
 
 | Variance reduction | Back end | Calibration paths | Run time, median (s) | min (s) | max (s) | Paths / s |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| No variance reduction | python | 107,878 | 0.1769 | 0.1707 | 0.1815 | 0.61 M |
-| No variance reduction | numpy | 17,147,187 | 0.2019 | 0.1987 | 0.2048 | 84.92 M |
-| No variance reduction | cpp | 8,079,766 | 0.2003 | 0.2001 | 0.2039 | 40.34 M |
-| No variance reduction | cpp/fast | 15,541,583 | 0.1993 | 0.1988 | 0.2059 | 77.99 M |
-| Antithetic | python | 110,056 | 0.199 | 0.1977 | 0.202 | 0.55 M |
-| Antithetic | numpy | 11,859,584 | 0.1914 | 0.1889 | 0.1976 | 61.95 M |
-| Antithetic | cpp | 6,625,923 | 0.2003 | 0.1998 | 0.2022 | 33.08 M |
-| Antithetic | cpp/fast | 10,883,466 | 0.2003 | 0.1976 | 0.2153 | 54.33 M |
-| Control variate | python | 122,737 | 0.1956 | 0.1947 | 0.2023 | 0.63 M |
-| Control variate | numpy | 17,099,381 | 0.2003 | 0.199 | 0.2042 | 85.37 M |
-| Control variate | cpp | 8,070,967 | 0.2 | 0.1992 | 0.2019 | 40.35 M |
-| Control variate | cpp/fast | 15,602,140 | 0.2002 | 0.1997 | 0.2016 | 77.92 M |
-| Antithetic + control variate | python | 107,616 | 0.204 | 0.1926 | 0.2095 | 0.53 M |
-| Antithetic + control variate | numpy | 12,533,020 | 0.2006 | 0.1991 | 0.2059 | 62.49 M |
-| Antithetic + control variate | cpp | 6,624,680 | 0.2023 | 0.199 | 0.2103 | 32.75 M |
-| Antithetic + control variate | cpp/fast | 10,951,012 | 0.1994 | 0.1992 | 0.1998 | 54.92 M |
+| No variance reduction | python | 243,964 | 0.1989 | 0.1984 | 0.1993 | 1.23 M |
+| No variance reduction | numpy | 33,334,509 | 0.1997 | 0.1994 | 0.2004 | 166.95 M |
+| No variance reduction | cpp | 15,769,362 | 0.2004 | 0.2001 | 0.2012 | 78.68 M |
+| No variance reduction | cpp/fast | 30,054,940 | 0.1999 | 0.1995 | 0.2009 | 150.36 M |
+| Antithetic | python | 218,711 | 0.2016 | 0.1999 | 0.2113 | 1.08 M |
+| Antithetic | numpy | 24,402,304 | 0.1999 | 0.1998 | 0.1999 | 122.10 M |
+| Antithetic | cpp | 12,952,174 | 0.1998 | 0.1993 | 0.2008 | 64.84 M |
+| Antithetic | cpp/fast | 21,392,236 | 0.1998 | 0.1996 | 0.2037 | 107.05 M |
+| Control variate | python | 248,464 | 0.2025 | 0.2009 | 0.2035 | 1.23 M |
+| Control variate | numpy | 33,314,942 | 0.1995 | 0.1993 | 0.2008 | 166.95 M |
+| Control variate | cpp | 15,747,441 | 0.1998 | 0.1996 | 0.2002 | 78.83 M |
+| Control variate | cpp/fast | 29,687,416 | 0.1986 | 0.1983 | 0.1997 | 149.51 M |
+| Antithetic + control variate | python | 216,521 | 0.2002 | 0.1992 | 0.2008 | 1.08 M |
+| Antithetic + control variate | numpy | 24,366,339 | 0.1999 | 0.1995 | 0.2107 | 121.87 M |
+| Antithetic + control variate | cpp | 12,928,541 | 0.1999 | 0.199 | 0.202 | 64.68 M |
+| Antithetic + control variate | cpp/fast | 21,380,223 | 0.1997 | 0.1992 | 0.2136 | 107.05 M |
 
 ### Where the time goes with each generator
 
@@ -360,20 +358,20 @@ the time it adds. The steps after the draw are the same code for both generators
 
 | C++ kernel, cost per path                            |     ns |
 | ---                                                  |   ---: |
-| mt19937_64 draw, converted to a uniform              |   2.93 |
-| Box-Muller transform (log, sqrt, sin, cos)           |  11.54 |
-| exp for the terminal price                           |   7.50 |
-| payoff and Welford update                            |   3.00 |
-| whole kernel, one path                               |  24.97 |
-| whole kernel, one antithetic pair                    |  30.07 |
-| not used: exp with log(S) inside the exponent        |   2.14 |
+| mt19937_64 draw, converted to a uniform              |   1.45 |
+| Box-Muller transform (log, sqrt, sin, cos)           |   5.85 |
+| exp for the terminal price                           |   3.77 |
+| payoff and Welford update                            |   1.37 |
+| whole kernel, one path                               |  12.43 |
+| whole kernel, one antithetic pair                    |  15.12 |
+| not used: exp with log(S) inside the exponent        |   1.11 |
 
 | C++ kernel with the fast generator, cost per path    |     ns |
 | ---                                                  |   ---: |
-| xoshiro256++ draw, converted to a uniform            |   1.34 |
-| ziggurat (one table lookup; exp or log for 1.5%)     |   1.53 |
-| exp for the terminal price                           |   7.53 |
-| payoff and Welford update                            |   2.62 |
-| whole kernel, one path                               |  13.03 |
-| whole kernel, one antithetic pair                    |  18.30 |
-| not used: exp with log(S) inside the exponent        |   2.17 |
+| xoshiro256++ draw, converted to a uniform            |   0.67 |
+| ziggurat (one table lookup; exp or log for 1.5%)     |   0.78 |
+| exp for the terminal price                           |   3.69 |
+| payoff and Welford update                            |   1.37 |
+| whole kernel, one path                               |   6.51 |
+| whole kernel, one antithetic pair                    |   9.11 |
+| not used: exp with log(S) inside the exponent        |   1.00 |
