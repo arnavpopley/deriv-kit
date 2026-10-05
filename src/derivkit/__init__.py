@@ -42,7 +42,7 @@ from derivkit.types import (
     validate,
 )
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 
 def __getattr__(name: str):
